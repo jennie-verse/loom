@@ -1,0 +1,4 @@
+.DS_Store
+loom-backup-*.json
+loom-diagnostics.json
+*.zip

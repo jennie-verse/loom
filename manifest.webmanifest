@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Loom — Day planner",
+  "short_name": "Loom",
+  "description": "A private, offline day planner on a vertical timeline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FDF7F8",
+  "theme_color": "#FDF7F8",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
