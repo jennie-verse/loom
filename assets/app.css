@@ -139,7 +139,7 @@ a { color: inherit; }
   flex: 0 0 auto; padding: 6px 12px; background: #FDEFE1; border-bottom: 1px solid var(--line);
   font-size: calc(var(--f) * .92); color: var(--text); display: flex; align-items: center; gap: 8px;
 }
-.notice button { margin-left: auto; background: none; border: 0; color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; min-height: 32px; padding: 0 8px; }
+.notice button { margin-left: auto; background: none; border: 0; color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; min-height: 44px; padding: 0 8px; }
 
 /* ---------- Day timeline ---------- */
 .scroll {
@@ -264,7 +264,7 @@ a { color: inherit; }
 /* ---------- Agenda ---------- */
 .agenda-list { list-style: none; padding: 6px 8px calc(16px + env(safe-area-inset-bottom)); }
 .agenda-row {
-  display: flex; align-items: flex-start; gap: 10px; min-height: 56px; padding: 8px 8px;
+  display: flex; align-items: flex-start; gap: 10px; min-height: 60px; padding: 8px 8px;
   border-bottom: 1px solid var(--line); position: relative;
 }
 .agenda-row .swatch { width: 4px; align-self: stretch; border-radius: 3px; flex: 0 0 4px; }
@@ -275,8 +275,9 @@ a { color: inherit; }
 .agenda-row.done .t { text-decoration: line-through; }
 .agenda-row.done { opacity: .6; }
 .agenda-row .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--on-accent); flex: 0 0 6px; margin-top: 6px; }
-.agenda-row .actions { display: flex; gap: 2px; flex: 0 0 auto; }
-.agenda-row .actions button { width: 36px; height: 36px; background: none; border: 0; border-radius: 8px; cursor: pointer; color: var(--text-2); font-size: 14px; }
+.agenda-row .actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.agenda-row .actions button { position: relative; width: 36px; height: 36px; background: none; border: 0; border-radius: 8px; cursor: pointer; color: var(--text-2); font-size: 14px; }
+.agenda-row .actions button::before { content: ""; position: absolute; inset: -4px; }
 .agenda-row .actions button:active { background: var(--accent-tint); }
 .agenda-empty { text-align: center; color: var(--text-3); padding: 40px 20px; font-size: calc(var(--f) * .95); }
 
@@ -387,7 +388,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
   font-size: calc(var(--f) * .95); display: flex; align-items: center; gap: 12px; max-width: 90vw;
   box-shadow: 0 6px 16px rgba(0,0,0,.24);
 }
-.toast button { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; min-height: 32px; }
+.toast button { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; min-height: 44px; }
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: toast-in .15s ease-out; }
 }
@@ -398,7 +399,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .tpl-row { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
 .tpl-row .name { flex: 1; font-weight: 700; }
 .tpl-row .count { font-size: calc(var(--f) * .84); color: var(--text-3); }
-.tpl-row button { background: none; border: 0; cursor: pointer; color: var(--text-2); min-height: 40px; min-width: 40px; border-radius: 8px; }
+.tpl-row button { background: none; border: 0; cursor: pointer; color: var(--text-2); min-height: 44px; min-width: 44px; border-radius: 8px; }
 
 /* ---------- Misc ---------- */
 .hidden { display: none !important; }
