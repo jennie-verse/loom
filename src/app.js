@@ -49,7 +49,7 @@ async function init() {
   if (lostData) {
     showBanner("Storage looks empty but data was expected — check Settings › Import to restore from a backup.");
   } else {
-    maybeShowBackupNotice();
+    await maybeShowBackupNotice();
   }
 
   restoreDraftIfAny();
@@ -460,7 +460,11 @@ function showBanner(message) {
   els.notice.classList.remove("hidden");
 }
 
-function maybeShowBackupNotice() {
+async function maybeShowBackupNotice() {
+  // Nothing saved yet means nothing to lose — a fresh install should not open on a
+  // warning. Only nag once there are blocks worth exporting.
+  if ((await store.countBlocks()) === 0) return;
+
   const days = daysSinceBackup(state.settings.lastBackupAt);
   if (days >= 30) {
     showBanner(`It's been ${days === Infinity ? "a while" : days + " days"} since your last backup — export one from Settings.`);

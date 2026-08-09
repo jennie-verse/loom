@@ -1,4 +1,4 @@
-const CACHE_NAME = "loom-v3";
+const CACHE_NAME = "loom-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
