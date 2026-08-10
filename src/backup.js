@@ -12,15 +12,25 @@ function backupFilename() {
   return `loom-backup-${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}.json`;
 }
 
-export async function exportBackup() {
+/** The one place that decides what a backup looks like.
+
+    Blocks and templates are read from storage here, never taken from screen
+    state: an upload must not be able to shrink what is already stored. The
+    remote backup in sync.js uses this same payload, so `Back up to GitHub` and
+    `Export JSON` produce identical files and Import reads both. */
+export async function buildBackupPayload() {
   const [blocks, templates] = await Promise.all([store.getAllBlocks(), store.getTemplates()]);
-  const payload = {
+  return {
     format: FORMAT,
     version: VERSION,
     exportedAt: new Date().toISOString(),
     blocks,
     templates,
   };
+}
+
+export async function exportBackup() {
+  const payload = await buildBackupPayload();
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

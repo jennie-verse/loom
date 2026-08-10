@@ -18,7 +18,10 @@ loom/
 │  ├─ app.css                 전체 디자인 토큰과 스타일
 │  └─ fonts/                  Lexend 400·700 (오프라인 동봉)
 ├─ src/
+│  ├─ version.js              APP_BUILD — sw.js의 VERSION과 반드시 같아야 함
 │  ├─ store.js                IndexedDB 저장, localStorage 설정
+│  ├─ sync.js                 webapp-data 읽기·쓰기 (이벤트·동기화·백업)
+│  ├─ sync-runner.js          동기화 순서와 시점 (받아오기 → 합치기 → 올리기)
 │  ├─ model.js                데이터 검증, 겹침 계산, 표시 단계 판정
 │  ├─ day-view.js             하루 시간축 화면 · 드래그 · 현재 시각 선
 │  ├─ agenda-view.js           목록 화면
@@ -54,3 +57,19 @@ loom/
 - 글자 크기·시간 간격 등 설정: 이 브라우저의 localStorage (`loom.settings.v1`)
 
 기기를 바꾸거나 브라우저 저장소가 지워지면 데이터가 사라집니다. 정기적으로 Settings → Export JSON으로 백업하세요. 자세한 내용은 [백업·복원 안내](BACKUP-RESTORE-KO.md)를 확인하세요.
+
+동기화(Sync)를 켜면 `webapp-data`(비공개 저장소)에도 함께 올라갑니다. 켜는 법과 주의점은 [사용 안내](USER-GUIDE-KO.md)의 "동기화 (Sync)"를 확인하세요.
+
+| 층 | 파일 | 무엇 |
+|---|---|---|
+| A | `loom/data.<기기>.json` | 블록·템플릿 (기기 간 동기화) |
+| B | `events/loom.<기기>.<YYYY-MM>.json` | 완료 기록 — atlas·trace가 읽음 |
+| C | `backups/loom/YYYY-MM-DD.json` | 복원용 스냅샷, 최근 12개 |
+
+## 고칠 때 지켜야 하는 것 두 가지
+
+1. **`sw.js`의 `VERSION`과 `src/version.js`의 `APP_BUILD`는 항상 같은 값이어야 합니다.** Service Worker가 캐시를 먼저 돌려주기 때문에, 배포해도 기기에서는 이전 빌드가 도는 시간이 있습니다. 설정 화면의 App version이 그것을 눈으로 확인하는 유일한 수단입니다. 검사 스크립트가 두 값이 다르면 실패합니다.
+2. **`sw.js`의 fetch 핸들러에서 크로스오리진 요청을 건드리지 마세요.** `url.origin !== self.location.origin` 이면 그냥 통과시켜야 합니다. 이 줄을 지우면 `api.github.com`으로 나가는 **읽기만** 실패하고 쓰기는 통과해서, 올리기가 원격을 빈 값으로 덮어씁니다.
+3. **`src/sync.js`에서 공용 모듈을 정적 `import` 하지 마세요.** `import(...)`로 필요할 때만 부릅니다. 정적으로 부르면 `shared/v1/sync.js` 하나를 못 받는 순간 앱 전체가 빈 화면이 됩니다. loom은 그 파일 없이도 완전히 동작해야 합니다.
+
+세 가지 모두 `Plan/webapp-data_plan/tests/`의 검사가 자동으로 확인합니다.

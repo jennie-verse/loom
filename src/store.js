@@ -106,11 +106,51 @@ export async function getBlockById(id) {
   return reqToPromise(tx(db, "blocks", "readonly").get(id));
 }
 
+// ---------- block change hook (sync.js listens here) ----------
+// Every single-block write goes through putBlock/deleteBlock, so one hook here
+// covers the agenda checkmark, the block sheet's Done switch, Undo, duplicate
+// and template application. bulkPutBlocks is deliberately NOT hooked: it is
+// only used by Import and by Undo of a bulk delete, which must not emit events.
+
+let blockChangeHook = null;
+let hookSuppressed = false;
+
+export function setBlockChangeHook(fn) {
+  blockChangeHook = typeof fn === "function" ? fn : null;
+}
+
+/** Runs fn with the hook off — used while applying data pulled from other
+    devices, which must not be re-queued as new local events. */
+export async function withoutBlockHook(fn) {
+  hookSuppressed = true;
+  try {
+    return await fn();
+  } finally {
+    hookSuppressed = false;
+  }
+}
+
+function notifyBlockChange(next, previous) {
+  if (!blockChangeHook || hookSuppressed) return;
+  try {
+    blockChangeHook(next, previous);
+  } catch {
+    // Syncing must never break a local save.
+  }
+}
+
 export async function putBlock(block) {
   const db = await openDB();
+  let previous = null;
+  try {
+    previous = await reqToPromise(tx(db, "blocks", "readonly").get(block.id));
+  } catch {
+    previous = null;
+  }
   await reqToPromise(tx(db, "blocks", "readwrite").put(block));
   markHasData(true);
   await requestPersistOnce();
+  notifyBlockChange(block, previous || null);
   return block;
 }
 
@@ -124,7 +164,14 @@ export async function bulkPutBlocks(blocks) {
 
 export async function deleteBlock(id) {
   const db = await openDB();
+  let previous = null;
+  try {
+    previous = await reqToPromise(tx(db, "blocks", "readonly").get(id));
+  } catch {
+    previous = null;
+  }
   await reqToPromise(tx(db, "blocks", "readwrite").delete(id));
+  notifyBlockChange(null, previous || null);
 }
 
 export async function deleteBlocksByIds(ids) {

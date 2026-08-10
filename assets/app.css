@@ -326,7 +326,7 @@ a { color: inherit; }
 .field .hint.err { color: var(--coral); }
 .field .count { font-size: calc(var(--f) * .84); color: var(--text-3); text-align: right; margin-top: 2px; }
 
-input[type="text"], input[type="time"], input[type="number"], input[type="date"], textarea, select {
+input[type="text"], input[type="password"], input[type="time"], input[type="number"], input[type="date"], textarea, select {
   width: 100%; font-size: 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
   background: var(--card); color: var(--text); min-height: 44px;
 }

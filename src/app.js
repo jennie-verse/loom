@@ -16,6 +16,7 @@ import { openTemplatesSheet, openCopyFromSheet, saveTodayAsTemplate, emptyDayTem
 import { openSettingsSheet } from "./settings.js";
 import { exportBackup, importBackup, pickImportFile, daysSinceBackup } from "./backup.js";
 import { toast, undoToast, announce, actionToast, confirmDialog } from "./ui.js";
+import * as syncRunner from "./sync-runner.js";
 
 const root = document.getElementById("app-root");
 
@@ -45,6 +46,10 @@ async function init() {
   applyDisplayVars();
   registerServiceWorker();
 
+  // Local changes start queueing immediately, even while sync is off — turning
+  // it on later should not leave the days in between looking empty.
+  syncRunner.attach();
+
   const lostData = await store.checkDataLossRisk();
   if (lostData) {
     showBanner("Storage looks empty but data was expected — check Settings › Import to restore from a backup.");
@@ -61,6 +66,12 @@ async function init() {
   dayView.startClock(() => onClockTick());
 
   window.addEventListener("resize", debounce(onResize, 200));
+
+  // Runs only when sync is enabled and a token and context exist. Failures are
+  // silent: the app is fully usable offline and the queue keeps the changes.
+  syncRunner.runSync().then((result) => {
+    if (result && result.pulled) refreshCurrent();
+  }).catch(() => { /* local storage is always the source of truth */ });
 }
 
 // --f must live on an ancestor shared by the header/now-strip/bar/sheets, not

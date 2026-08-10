@@ -225,7 +225,7 @@ export async function openTemplatesSheet({ date, onApplied }) {
   newBtn.addEventListener("click", async () => {
     const name = await promptText("New template", "Template name");
     if (!name) return;
-    const tpl = { id: "tpl-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.slice(0, 40), blocks: [] };
+    const tpl = { id: "tpl-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.slice(0, 40), blocks: [], updatedAt: new Date().toISOString() };
     await store.putTemplate(tpl);
     await refresh();
     openTemplateEditor(tpl, { onSaved: () => refresh() });
@@ -373,7 +373,10 @@ export function openTemplateEditor(template, { onSaved }) {
   cancelBtn.addEventListener("click", close);
   document.addEventListener("keydown", onKey);
   saveBtn.addEventListener("click", async () => {
-    await store.putTemplate({ ...template, blocks });
+    // updatedAt decides which device's edit wins when templates are synced.
+    // Templates that never carried one (the seeded Weekday/Weekend) count as
+    // the oldest possible, so a real edit anywhere always beats them.
+    await store.putTemplate({ ...template, blocks, updatedAt: new Date().toISOString() });
     close();
     if (onSaved) onSaved();
   });
@@ -402,7 +405,7 @@ export async function saveTodayAsTemplate(date, blocksToday) {
   const name = await promptText("Save as template", "Template name");
   if (!name) return;
   const tplBlocks = blocksToday.map((b) => normalizeTemplateBlock(b));
-  const tpl = { id: "tpl-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.slice(0, 40), blocks: tplBlocks };
+  const tpl = { id: "tpl-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.slice(0, 40), blocks: tplBlocks, updatedAt: new Date().toISOString() };
   await store.putTemplate(tpl);
   toast(`Saved as "${tpl.name}"`);
 }

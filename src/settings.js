@@ -5,6 +5,215 @@ import { FONT_STEPS, HOUR_STEPS, SNAP_STEPS, DEFAULT_SETTINGS, todayKey } from "
 import * as store from "./store.js";
 import { exportBackup, importBackup, pickImportFile, daysSinceBackup } from "./backup.js";
 import { confirmDialog, undoToast, toast } from "./ui.js";
+import * as sync from "./sync.js";
+import * as syncRunner from "./sync-runner.js";
+import { APP_BUILD } from "./version.js";
+
+/* ── Sync section ────────────────────────────────────────────────────────
+   Sync is off until it is switched on here, and the app is fully usable while
+   it stays off. Two rules are load-bearing:
+
+   1. The device name is asked for BEFORE sync is switched on. The context id is
+      fixed at creation and goes into the remote file names, so a name added
+      afterwards would only change the label — the files would stay
+      `context-3f2a1b9c`. Only a–z and 0–9 survive into the id.
+   2. Uploads never shrink what is stored remotely, which also means deleting
+      here does not delete on other devices. That is stated on screen.
+   ────────────────────────────────────────────────────────────────────── */
+
+function buildSyncSection(sec) {
+  const status = document.createElement("p");
+  status.className = "hint";
+  status.setAttribute("role", "status");
+  sec.appendChild(status);
+
+  // --- device name ---
+  const nameRow = document.createElement("div");
+  nameRow.className = "settings-row";
+  nameRow.style.flexDirection = "column";
+  nameRow.style.alignItems = "stretch";
+  const nameLbl = document.createElement("label");
+  nameLbl.className = "lbl";
+  nameLbl.textContent = "Device name";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.autocapitalize = "none";
+  nameInput.autocomplete = "off";
+  nameInput.spellcheck = false;
+  nameInput.placeholder = "iphone-home";
+  nameInput.style.marginTop = "6px";
+  nameLbl.htmlFor = nameInput.id = "sync-device-name";
+  const nameHint = document.createElement("p");
+  nameHint.className = "hint";
+  nameHint.textContent = "Use English letters and numbers — the file name is built from this and cannot be changed later.";
+  nameRow.append(nameLbl, nameInput, nameHint);
+  sec.appendChild(nameRow);
+
+  // --- token ---
+  const tokenRow = document.createElement("div");
+  tokenRow.className = "settings-row";
+  tokenRow.style.flexDirection = "column";
+  tokenRow.style.alignItems = "stretch";
+  const tokenLbl = document.createElement("label");
+  tokenLbl.className = "lbl";
+  tokenLbl.textContent = "Access token";
+  const tokenInput = document.createElement("input");
+  tokenInput.type = "password";
+  tokenInput.autocapitalize = "none";
+  tokenInput.autocomplete = "off";
+  tokenInput.spellcheck = false;
+  tokenInput.placeholder = "github_pat_…";
+  tokenInput.style.marginTop = "6px";
+  tokenLbl.htmlFor = tokenInput.id = "sync-token";
+  const tokenBtns = document.createElement("div");
+  tokenBtns.style.display = "flex";
+  tokenBtns.style.gap = "8px";
+  tokenBtns.style.marginTop = "8px";
+  const saveTokenBtn = document.createElement("button");
+  saveTokenBtn.type = "button"; saveTokenBtn.className = "btn"; saveTokenBtn.style.flex = "1"; saveTokenBtn.textContent = "Save token";
+  const clearTokenBtn = document.createElement("button");
+  clearTokenBtn.type = "button"; clearTokenBtn.className = "btn"; clearTokenBtn.style.flex = "1"; clearTokenBtn.textContent = "Clear token";
+  tokenBtns.append(saveTokenBtn, clearTokenBtn);
+  tokenRow.append(tokenLbl, tokenInput, tokenBtns);
+  sec.appendChild(tokenRow);
+
+  // --- enable switch ---
+  const enableRow = document.createElement("div");
+  enableRow.className = "settings-row";
+  const enableLbl = document.createElement("div");
+  enableLbl.className = "lbl";
+  enableLbl.textContent = "Sync with GitHub";
+  const enableSwitch = document.createElement("button");
+  enableSwitch.type = "button";
+  enableSwitch.className = "switch";
+  enableSwitch.setAttribute("role", "switch");
+  enableRow.append(enableLbl, enableSwitch);
+  sec.appendChild(enableRow);
+
+  // --- actions ---
+  const actionRow = document.createElement("div");
+  actionRow.style.display = "flex";
+  actionRow.style.gap = "8px";
+  actionRow.style.marginTop = "8px";
+  const syncNowBtn = document.createElement("button");
+  syncNowBtn.type = "button"; syncNowBtn.className = "btn"; syncNowBtn.style.flex = "1"; syncNowBtn.textContent = "Sync now";
+  const remoteBackupBtn = document.createElement("button");
+  remoteBackupBtn.type = "button"; remoteBackupBtn.className = "btn"; remoteBackupBtn.style.flex = "1"; remoteBackupBtn.textContent = "Back up to GitHub";
+  actionRow.append(syncNowBtn, remoteBackupBtn);
+  sec.appendChild(actionRow);
+
+  const warn = document.createElement("p");
+  warn.className = "hint";
+  warn.textContent = "Deleting a block here does not delete it on your other devices.";
+  sec.appendChild(warn);
+
+  function fmtWhen(ms) {
+    if (!ms) return "never";
+    const mins = Math.floor((Date.now() - ms) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} h ago`;
+    return `${Math.floor(hours / 24)} d ago`;
+  }
+
+  function refresh(message) {
+    const on = sync.isEnabled();
+    const hint = sync.tokenHint();
+    enableSwitch.setAttribute("aria-checked", String(on));
+    tokenInput.placeholder = hint || "github_pat_…";
+    nameInput.disabled = Boolean(sync.getContextId());
+    nameInput.value = sync.getContextLabel() || nameInput.value;
+    syncNowBtn.disabled = !sync.isReady();
+    remoteBackupBtn.disabled = !sync.isReady();
+
+    if (message) { status.textContent = message; return; }
+    if (!on) {
+      status.textContent = "Off — everything stays on this device.";
+      return;
+    }
+    const pending = sync.pendingEventCount();
+    status.textContent = `On · device ${sync.getContextId() || "—"} · last sync ${fmtWhen(sync.getLastSyncAt())}`
+      + (pending ? ` · ${pending} queued` : "");
+  }
+
+  syncRunner.onSyncState((state, detail) => {
+    if (state === "syncing") { status.textContent = "Syncing…"; return; }
+    if (state === "error") { refresh(sync.describeError(detail && detail.error)); return; }
+    refresh();
+  });
+
+  saveTokenBtn.addEventListener("click", () => {
+    if (!sync.saveToken(tokenInput.value)) { toast("Enter a token first"); return; }
+    tokenInput.value = "";
+    refresh("Token saved.");
+  });
+
+  clearTokenBtn.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Clear the token?",
+      message: "Sync stops until a token is entered again. Nothing stored on this device is removed.",
+      confirmLabel: "Clear token",
+      danger: true,
+    });
+    if (!ok) return;
+    sync.clearToken();
+    sync.setEnabled(false);
+    refresh("Token cleared.");
+  });
+
+  enableSwitch.addEventListener("click", async () => {
+    if (sync.isEnabled()) {
+      sync.setEnabled(false);
+      refresh();
+      return;
+    }
+    if (!sync.getToken()) { toast("Save an access token first"); return; }
+    // The id is created here, once, from the name typed above.
+    if (!sync.getContextId()) {
+      const typed = nameInput.value.trim();
+      if (!/[a-z0-9]/i.test(typed)) {
+        toast("Enter a device name using English letters or numbers");
+        nameInput.focus();
+        return;
+      }
+      try {
+        await sync.ensureContext(typed);
+      } catch (error) {
+        // The shared module is fetched on demand; if it cannot be loaded the
+        // switch must stay off rather than leave a half-configured state.
+        refresh(sync.describeError(error));
+        return;
+      }
+      sync.setContextLabel(typed);
+    }
+    sync.setEnabled(true);
+    refresh();
+    const result = await syncRunner.runSync();
+    refresh(result && result.error ? sync.describeError(result.error) : undefined);
+  });
+
+  syncNowBtn.addEventListener("click", async () => {
+    const result = await syncRunner.runSync();
+    refresh(result && result.error ? sync.describeError(result.error) : "Synced.");
+  });
+
+  remoteBackupBtn.addEventListener("click", async () => {
+    remoteBackupBtn.disabled = true;
+    try {
+      await syncRunner.backupToGitHub();
+      refresh(`Backed up to GitHub · ${fmtWhen(sync.getLastRemoteBackupAt())}`);
+    } catch (error) {
+      refresh(sync.describeError(error));
+    } finally {
+      remoteBackupBtn.disabled = !sync.isReady();
+    }
+  });
+
+  refresh();
+  // The listener outlives the DOM unless the sheet detaches it on close.
+  return () => syncRunner.onSyncState(null);
+}
 
 export function openSettingsSheet({ onChanged }) {
   let settings = store.getSettings();
@@ -147,6 +356,8 @@ export function openSettingsSheet({ onChanged }) {
   backupRow.appendChild(exportBtn); backupRow.appendChild(importBtn);
   backupSec.appendChild(backupRow);
 
+  const detachSync = buildSyncSection(section("Sync"));
+
   const dangerSec = section("Data");
   const purgeRow = document.createElement("div");
   purgeRow.className = "settings-row";
@@ -191,6 +402,14 @@ export function openSettingsSheet({ onChanged }) {
   resetRow.appendChild(resetLbl); resetRow.appendChild(resetBtn);
   dangerSec.appendChild(resetRow);
 
+  const aboutSec = section("About");
+  const buildP = document.createElement("p");
+  buildP.className = "hint";
+  // A Service Worker serves the cached build first, so a deployed fix can sit
+  // unused. This line is how you tell which build is actually running.
+  buildP.textContent = `App version ${APP_BUILD}`;
+  aboutSec.appendChild(buildP);
+
   const resetFontRow = document.createElement("div");
   resetFontRow.className = "settings-row";
   const rfLbl = document.createElement("div"); rfLbl.className = "lbl"; rfLbl.textContent = "Restore default display";
@@ -209,7 +428,7 @@ export function openSettingsSheet({ onChanged }) {
   overlay.appendChild(frame);
   document.getElementById("sheet-host").appendChild(overlay);
 
-  function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener("keydown", onKey); }
+  function close() { detachSync(); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener("keydown", onKey); }
   function onKey(e) { if (e.key === "Escape") close(); }
   closeBtn.addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
