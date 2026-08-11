@@ -1,19 +1,22 @@
 # GitHub Pages 배포 안내
 
-1. GitHub에서 Public 저장소 `loom`을 만듭니다.
-2. authoritative source인 `WebApp/Published/loom/`의 tracked 파일을 저장소 최상위에 올립니다. 로컬 `WebApp/Deliverable/loom/`은 성공한 배포를 확인하기 위한 읽기 전용 snapshot이며 직접 수정하거나 배포 source로 사용하지 않습니다.
-3. 저장소 **Settings → Pages → Build and deployment**에서 `Deploy from a branch`를 고르고, 배포 브랜치(예: `main`)와 `/(root)`를 선택합니다.
-4. 잠시 뒤 표시되는 Pages 주소 `https://<계정>.github.io/loom/`을 열어 화면이 정상적으로 뜨는지 확인합니다.
-5. iPhone Safari에서 그 주소를 열고 공유(Share) → 홈 화면에 추가(Add to Home Screen)로 설치합니다. 설치 후에는 홈 화면 앱을 주 사용 환경으로 삼으세요.
+1. authoritative source인 `WebApp/Published/loom/`에서 수정·테스트·commit·push합니다.
+2. 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 둡니다.
+3. `.github/workflows/deploy.yml`이 `npm ci && npm test`를 통과한 뒤 runtime allowlist만 Pages에 올립니다.
+4. workflow가 성공하면 `https://jennie-verse.github.io/loom/`을 열어 화면과 Service Worker version을 확인합니다.
+5. 로컬 `WebApp/Deliverable/loom/`은 성공한 artifact의 읽기 전용 snapshot으로 갱신합니다.
+
+배포 allowlist에는 `.nojekyll`, `README.md`, `index.html`, manifest, `sw.js`, `assets/`, `docs/`, `icons/`, `licenses/`, `src/`만 포함합니다. `tests/`, `package*.json`, `.github/`, `node_modules/`는 배포하지 않습니다.
 
 모든 코드 경로가 `./` 상대 경로이므로 저장소 이름이 `loom`이면 `/loom/` 하위 경로에서 그대로 동작합니다. 저장소 이름을 바꾸면 경로도 그에 맞게 바뀝니다.
 
 ## 업데이트할 때
 
-1. 수정한 파일을 저장소에 다시 올립니다.
+1. 수정한 파일을 commit해 `main`에 push합니다.
 2. `sw.js`를 고쳤다면 맨 위 `CACHE_NAME`의 숫자를 반드시 올립니다 (예: `loom-v1` → `loom-v2`). 올리지 않으면 사용자 기기에 옛 버전이 그대로 캐시되어 남습니다.
 3. `APP_SHELL` 목록에 새 파일을 추가했거나 파일 이름을 바꿨다면 목록도 함께 고칩니다.
-4. 사용자가 앱을 다시 열면 `New version available` 토스트가 뜨고, `Reload`를 눌러야 새 버전이 적용됩니다 (작성 중인 내용을 보호하기 위해 자동으로 새로고침하지 않습니다).
+4. Actions의 test와 Pages deployment가 모두 성공했는지 확인합니다.
+5. 사용자가 앱을 다시 열면 `New version available` 토스트가 뜨고, `Reload`를 눌러야 새 버전이 적용됩니다 (작성 중인 내용을 보호하기 위해 자동으로 새로고침하지 않습니다).
 
 ## 배포 전 확인
 
