@@ -1,7 +1,7 @@
 # GitHub Pages 배포 안내
 
 1. GitHub에서 Public 저장소 `loom`을 만듭니다.
-2. `Deliverable/loom/` 폴더 안의 파일 전체(숨김 파일 `.nojekyll` 포함)를 저장소 최상위에 올립니다. 폴더 자체가 아니라 **안의 내용물**을 올려야 합니다.
+2. authoritative source인 `WebApp/Published/loom/`의 tracked 파일을 저장소 최상위에 올립니다. 로컬 `WebApp/Deliverable/loom/`은 성공한 배포를 확인하기 위한 읽기 전용 snapshot이며 직접 수정하거나 배포 source로 사용하지 않습니다.
 3. 저장소 **Settings → Pages → Build and deployment**에서 `Deploy from a branch`를 고르고, 배포 브랜치(예: `main`)와 `/(root)`를 선택합니다.
 4. 잠시 뒤 표시되는 Pages 주소 `https://<계정>.github.io/loom/`을 열어 화면이 정상적으로 뜨는지 확인합니다.
 5. iPhone Safari에서 그 주소를 열고 공유(Share) → 홈 화면에 추가(Add to Home Screen)로 설치합니다. 설치 후에는 홈 화면 앱을 주 사용 환경으로 삼으세요.

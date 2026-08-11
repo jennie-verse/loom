@@ -72,4 +72,4 @@ loom/
 2. **`sw.js`의 fetch 핸들러에서 크로스오리진 요청을 건드리지 마세요.** `url.origin !== self.location.origin` 이면 그냥 통과시켜야 합니다. 이 줄을 지우면 `api.github.com`으로 나가는 **읽기만** 실패하고 쓰기는 통과해서, 올리기가 원격을 빈 값으로 덮어씁니다.
 3. **`src/sync.js`에서 공용 모듈을 정적 `import` 하지 마세요.** `import(...)`로 필요할 때만 부릅니다. 정적으로 부르면 `shared/v1/sync.js` 하나를 못 받는 순간 앱 전체가 빈 화면이 됩니다. loom은 그 파일 없이도 완전히 동작해야 합니다.
 
-세 가지 모두 `Plan/webapp-data_plan/tests/`의 검사가 자동으로 확인합니다.
+현재 저장소가 직접 소유하는 `tests/model-sync.test.mjs`가 세 가지 contract와 model 경계를 확인합니다. `npm ci && npm test`로 재실행합니다.

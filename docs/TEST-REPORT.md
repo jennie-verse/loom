@@ -1,7 +1,11 @@
 # Loom 테스트 리포트
 
 검토일: 2026-08-05
-검토 방법: `python3 -m http.server 8080 --directory Deliverable/` 로 `http://localhost:8080/loom/`를 열어 GitHub Pages `/loom/` 하위 경로를 재현. 자동화 브라우저(데스크톱, 마우스/JS 이벤트 기반)로 기능을 검증하고, 정적 검사는 `grep`으로 실행. 실제 iPhone 터치·회전·IME는 이 환경에서 검증할 수 없어 Pending으로 분리했습니다.
+당시 검토 방법: 2026-08-05에는 별도 `Deliverable/` staging에서 브라우저 검증을 수행했습니다. 현재는 `WebApp/Published/`에서 `python3 -m http.server 8080`을 실행하고 `http://localhost:8080/loom/`을 열어 GitHub Pages 하위 경로를 재현합니다. 실제 iPhone 터치·회전·IME는 계속 Pending입니다.
+
+## 2026-08-10 현재 재실행 결과
+
+`npm ci && npm test`로 저장소 소유 model/sync contract 7건을 재실행해 **7건 통과, 0건 실패**를 확인했습니다. GitHub Actions test workflow도 같은 명령을 사용합니다. 아래의 144건 기록은 당시 외부 harness 결과이며 현재 결과와 분리합니다.
 
 ---
 
@@ -97,7 +101,7 @@
 이벤트 기록 + 기기 간 동기화 + GitHub 백업을 붙였습니다.
 검사 방법: Node 22 + jsdom + `fake-indexeddb`. 공용 모듈 `shared/v1/sync.js`를 메모리 저장소로 동작하는 가짜 모듈로 바꿔치기해 네트워크 없이 실행했습니다. **앱 코드는 검사용으로 한 줄도 고치지 않았습니다.**
 
-스크립트는 `Plan/webapp-data_plan/tests/` 에 있습니다. `npm install` 후 `npm test`로 다시 돌릴 수 있습니다.
+아래 144건은 2026-08-10 당시 외부 작업 harness에서 얻은 역사 기록입니다. 그 `Plan/webapp-data_plan/tests/` 경로는 현재 존재하지 않으므로 이 결과를 현재 재실행 결과로 간주하지 않습니다. 현재 저장소는 `tests/model-sync.test.mjs`를 직접 소유하며 `npm ci && npm test`로 model·event schema·동적 shared import·CSP·Service Worker·build version contract를 재검증합니다.
 
 | 스크립트 | 내용 | 결과 |
 |---|---|---|
