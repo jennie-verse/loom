@@ -119,12 +119,12 @@ a { color: inherit; }
 .hdr-today {
   font: inherit; font-size: calc(var(--f) * .92); font-weight: 700;
   background: var(--accent-tint); color: var(--on-accent); border: 0;
-  min-height: 30px; padding: 0 10px; border-radius: 999px; cursor: pointer; margin-right: 2px;
+  min-height: 44px; min-width: 44px; padding: 0 10px; border-radius: 999px; cursor: pointer; margin-right: 2px;
 }
 
 /* ---------- Now & Next strip ---------- */
 .now {
-  height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 8px;
   padding: 0 12px; background: var(--accent-tint); border-bottom: 1px solid var(--line);
   font-size: calc(var(--f) * .95); color: var(--on-accent);
   cursor: pointer; border: 0; width: 100%; font-family: inherit; text-align: left;
@@ -174,7 +174,7 @@ a { color: inherit; }
 .night {
   position: absolute; left: 34px; right: 6px; border-radius: 8px; background: #F7EFF1;
   border: 1px dashed var(--line); display: grid; place-items: center;
-  font-size: calc(var(--f) * .92); color: var(--text-3); cursor: pointer; min-height: 22px;
+  font-size: calc(var(--f) * .92); color: var(--text-3); cursor: pointer; min-height: 44px;
   width: calc(100% - 40px);
 }
 
@@ -283,7 +283,7 @@ a { color: inherit; }
 
 /* ---------- Chips / buttons ---------- */
 .chip {
-  font: inherit; font-size: calc(var(--f) * .95); min-height: 36px; padding: 0 14px;
+  font: inherit; font-size: calc(var(--f) * .95); min-height: 44px; min-width: 44px; padding: 0 14px;
   border: 1px solid var(--line); background: var(--card); color: var(--text);
   border-radius: 999px; cursor: pointer;
 }

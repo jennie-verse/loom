@@ -70,6 +70,16 @@ test('service worker and visible build versions match', () => {
   assert.equal(worker[1], app[1]);
 });
 
+test('primary touch controls keep a 44px minimum target', () => {
+  const css = source('assets/app.css');
+  const dayView = source('src/day-view.js');
+  assert.match(css, /\.hdr-today\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.now\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.chip\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.night\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(dayView, /const NIGHT_BAND_PX = 48;/);
+});
+
 test('sync is disabled without credentials and context', () => {
   assert.equal(sync.isEnabled(), false);
   assert.equal(sync.isReady(), false);

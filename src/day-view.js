@@ -10,7 +10,9 @@ import {
 import { announce } from "./ui.js";
 
 const NIGHT_END_HOUR = 6;
-const NIGHT_BAND_PX = 26;
+// Keep the collapsed night control large enough for a touch target. This is
+// view-only geometry and never changes a block's canonical time data.
+const NIGHT_BAND_PX = 48;
 const HOLD_MS = 400;
 const MOVE_THRESHOLD = 10;
 const EDGE_EXCLUDE_PX = 24;
