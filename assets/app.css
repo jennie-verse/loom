@@ -371,6 +371,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .cal-day.selected .dot { background: var(--on-accent); }
 
 /* ---------- Settings ---------- */
+.journal-range { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.journal-range label { display: grid; gap: 6px; }
+.journal-range input { width: 100%; min-width: 0; font-size: 16px; }
+.journal-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.journal-actions .btn { width: 100%; }
 .settings-section { margin-bottom: 22px; }
 .settings-section h3 { font-size: 13px; color: var(--text-2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .02em; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); gap: 10px; }

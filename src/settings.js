@@ -7,6 +7,7 @@ import { exportBackup, importBackup, pickImportFile, daysSinceBackup } from "./b
 import { confirmDialog, undoToast, toast } from "./ui.js";
 import * as sync from "./sync.js";
 import * as syncRunner from "./sync-runner.js";
+import * as journal from "./journal.js";
 import { APP_BUILD } from "./version.js";
 
 /* ── Sync section ────────────────────────────────────────────────────────
@@ -215,6 +216,155 @@ function buildSyncSection(sec) {
   return () => syncRunner.onSyncState(null);
 }
 
+function dateValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function rangeDays(from, to) {
+  const start = new Date(`${from}T12:00:00`);
+  const end = new Date(`${to}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return 0;
+  return Math.floor((end - start) / 86400000) + 1;
+}
+
+function buildJournalSection(sec) {
+  const intro = document.createElement("p");
+  intro.className = "hint";
+  intro.textContent = "Optionally send every scheduled block to Daybook, whether complete or not. This stays off until you choose it, even when Sync is on.";
+  sec.appendChild(intro);
+
+  const enableRow = document.createElement("div");
+  enableRow.className = "settings-row";
+  const enableLabel = document.createElement("div");
+  enableLabel.className = "lbl";
+  enableLabel.textContent = "Include in journal";
+  const enableSwitch = document.createElement("button");
+  enableSwitch.type = "button";
+  enableSwitch.className = "switch";
+  enableSwitch.setAttribute("role", "switch");
+  enableRow.append(enableLabel, enableSwitch);
+  sec.appendChild(enableRow);
+
+  const status = document.createElement("p");
+  status.className = "hint";
+  status.setAttribute("role", "status");
+  sec.appendChild(status);
+
+  const historyTitle = document.createElement("div");
+  historyTitle.className = "lbl";
+  historyTitle.textContent = "Add existing history";
+  sec.appendChild(historyTitle);
+  const historyHint = document.createElement("p");
+  historyHint.className = "hint";
+  historyHint.textContent = "Runs only when you request it. Blocks already deleted cannot be recovered.";
+  sec.appendChild(historyHint);
+
+  const range = document.createElement("div");
+  range.className = "journal-range";
+  const fromLabel = document.createElement("label");
+  fromLabel.className = "lbl";
+  fromLabel.textContent = "From";
+  const from = document.createElement("input");
+  from.type = "date";
+  const start = new Date();
+  start.setMonth(start.getMonth() - 3);
+  from.value = dateValue(start);
+  fromLabel.appendChild(from);
+  const toLabel = document.createElement("label");
+  toLabel.className = "lbl";
+  toLabel.textContent = "To";
+  const to = document.createElement("input");
+  to.type = "date";
+  to.value = dateValue();
+  toLabel.appendChild(to);
+  range.append(fromLabel, toLabel);
+  sec.appendChild(range);
+
+  const actions = document.createElement("div");
+  actions.className = "journal-actions";
+  const previewButton = document.createElement("button");
+  previewButton.type = "button";
+  previewButton.className = "btn";
+  previewButton.textContent = "Preview";
+  const importButton = document.createElement("button");
+  importButton.type = "button";
+  importButton.className = "btn";
+  importButton.textContent = "Import";
+  actions.append(previewButton, importButton);
+  sec.appendChild(actions);
+  const previewLine = document.createElement("p");
+  previewLine.className = "hint";
+  previewLine.textContent = "Default range: recent 3 months";
+  previewLine.setAttribute("aria-live", "polite");
+  sec.appendChild(previewLine);
+  let preview = null;
+
+  function refresh(state = journal.getJournalState()) {
+    enableSwitch.setAttribute("aria-checked", String(state.enabled));
+    status.textContent = state.enabled
+      ? `${state.errorCode || state.status} · ${state.pendingCount || 0} pending`
+      : "Off — no Loom records are sent to Daybook.";
+  }
+
+  async function makePreview() {
+    const days = rangeDays(from.value, to.value);
+    if (!days) { toast("Choose a valid date range"); return null; }
+    const blocks = (await store.getAllBlocks()).filter((block) => block.date >= from.value && block.date <= to.value);
+    preview = { from: from.value, to: to.value, days, blocks };
+    previewLine.textContent = `${days} day${days === 1 ? "" : "s"} · ${blocks.length} block${blocks.length === 1 ? "" : "s"} available`;
+    return preview;
+  }
+
+  enableSwitch.addEventListener("click", async () => {
+    const enabling = !journal.isJournalEnabled();
+    let preferredName = sync.getContextLabel();
+    if (enabling && !sync.getContextId()) {
+      preferredName = document.getElementById("sync-device-name")?.value.trim() || "";
+      if (!/[a-z0-9]/i.test(preferredName)) {
+        toast("Enter a device name in Sync using English letters or numbers");
+        document.getElementById("sync-device-name")?.focus();
+        return;
+      }
+    }
+    const result = await journal.toggleJournal(enabling, preferredName);
+    if (!result.ok) {
+      toast(result.reason === "token" ? "Save an access token first" : "Set a device name first");
+      refresh();
+      return;
+    }
+    refresh(await journal.refreshJournalState());
+    toast(enabling ? "New Loom blocks will be included in Daybook" : "Journal inclusion is off");
+  });
+
+  previewButton.addEventListener("click", makePreview);
+  from.addEventListener("change", () => { preview = null; previewLine.textContent = "Preview the selected range before importing"; });
+  to.addEventListener("change", () => { preview = null; previewLine.textContent = "Preview the selected range before importing"; });
+  importButton.addEventListener("click", async () => {
+    if (!journal.isJournalEnabled()) { toast("Turn on Include in journal first"); return; }
+    if (!preview || preview.from !== from.value || preview.to !== to.value) await makePreview();
+    if (!preview) return;
+    const ok = await confirmDialog({
+      title: "Add existing history?",
+      message: `${preview.blocks.length} block(s) from ${preview.from} through ${preview.to} will be added to Daybook.`,
+      confirmLabel: "Import",
+    });
+    if (!ok) return;
+    const result = await journal.backfillJournal(preview.blocks, {
+      from: preview.from, to: preview.to, totalDates: preview.days,
+    });
+    previewLine.textContent = result.error
+      ? "Import paused · pending blocks will retry when online"
+      : `Imported ${result.written} block${result.written === 1 ? "" : "s"}`;
+    refresh(await journal.refreshJournalState());
+  });
+
+  const detach = journal.onJournalState(refresh);
+  journal.refreshJournalState().then(refresh);
+  return detach;
+}
+
 export function openSettingsSheet({ onChanged }) {
   let settings = store.getSettings();
 
@@ -357,6 +507,7 @@ export function openSettingsSheet({ onChanged }) {
   backupSec.appendChild(backupRow);
 
   const detachSync = buildSyncSection(section("Sync"));
+  const detachJournal = buildJournalSection(section("Journal"));
 
   const dangerSec = section("Data");
   const purgeRow = document.createElement("div");
@@ -428,7 +579,7 @@ export function openSettingsSheet({ onChanged }) {
   overlay.appendChild(frame);
   document.getElementById("sheet-host").appendChild(overlay);
 
-  function close() { detachSync(); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener("keydown", onKey); }
+  function close() { detachSync(); detachJournal(); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener("keydown", onKey); }
   function onKey(e) { if (e.key === "Escape") close(); }
   closeBtn.addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });

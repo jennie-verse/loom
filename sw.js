@@ -1,7 +1,7 @@
 // Keep VERSION in step with APP_BUILD in ./src/version.js.
 // The Settings screen shows APP_BUILD so a stale cached build is visible at a
 // glance — "deployed" and "running on the device" are not the same thing.
-const VERSION = "2026.08.11-touch1";
+const VERSION = "2026.08.17-journal1";
 const CACHE_NAME = `loom-${VERSION}`;
 
 const APP_SHELL = [
@@ -17,6 +17,8 @@ const APP_SHELL = [
   "./src/store.js",
   "./src/sync.js",
   "./src/sync-runner.js",
+  "./src/journal.js",
+  "./src/journal-record.js",
   "./src/day-view.js",
   "./src/agenda-view.js",
   "./src/block-sheet.js",
@@ -35,6 +37,7 @@ const APP_SHELL = [
 // there must not stop the whole app from installing.
 const OPTIONAL_ASSETS = [
   "../shared/v1/sync.js",
+  "../shared/v2/journal.js",
 ];
 
 self.addEventListener("install", (event) => {

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as model from '../src/model.js';
+import { blockToJournalRecord } from '../src/journal-record.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -84,4 +85,47 @@ test('sync is disabled without credentials and context', () => {
   assert.equal(sync.isEnabled(), false);
   assert.equal(sync.isReady(), false);
   assert.equal(sync.pendingEventCount(), 0);
+});
+
+test('journal block projection includes every scheduled field regardless of completion', () => {
+  const block = model.normalizeBlock({
+    id: 'fixture-block', date: '2026-08-17', start: 9 * 60, duration: 45,
+    title: 'Fixture block', subtitle: 'Fixture subtitle', note: 'Fixture note',
+    detail: 'Fixture detail', color: 'rose', done: false,
+    createdAt: '2026-08-17T14:00:00.000Z',
+  });
+  const record = blockToJournalRecord(block);
+  assert.equal(record.kind, 'block');
+  assert.equal(record.title, 'Fixture block');
+  assert.deepEqual(record.data, {
+    date: '2026-08-17', start: 540, duration: 45, title: 'Fixture block',
+    subtitle: 'Fixture subtitle', note: 'Fixture note', detail: 'Fixture detail',
+    color: 'rose', done: false,
+  });
+  assert.equal(JSON.stringify(record).includes('token'), false);
+});
+
+test('journal uses a separate default-off key and dynamically loads shared v2', () => {
+  const text = source('src/journal.js');
+  assert.match(text, /loom\.journalEnabled\.v1/);
+  assert.match(text, /import\(["']\.\.\/\.\.\/shared\/v2\/journal\.js["']\)/);
+  assert.doesNotMatch(text, /^import\s+.*shared\/v2\/journal\.js/m);
+});
+
+test('journal observes single, bulk, date-delete, purge, clear, replace, and undo paths without widening legacy events', () => {
+  const storeText = source('src/store.js');
+  const backupText = source('src/backup.js');
+  const templateText = source('src/templates.js');
+  const appText = source('src/app.js');
+  assert.match(storeText, /setJournalBlockChangeHook/);
+  assert.match(storeText, /bulkPutBlocks[\s\S]*notifyBlockChange\(block, previous\.get\(block\.id\)[\s\S]*journalOnly: true/);
+  assert.match(storeText, /deleteBlocksByIds[\s\S]*notifyBlockChange\(null, block, \{ journalOnly: true \}\)/);
+  assert.match(storeText, /deleteBlocksForDate[\s\S]*deleteBlocksByIds/);
+  assert.match(storeText, /deleteBlocksBefore[\s\S]*deleteBlocksByIds/);
+  assert.match(storeText, /clearAllBlocks[\s\S]*notifyBlockChange\(null, block, \{ journalOnly: true \}\)/);
+  assert.match(backupText, /clearAllBlocks\(\)[\s\S]*bulkPutBlocks\(data\.blocks\)/);
+  assert.match(backupText, /onUndo:[\s\S]*clearAllBlocks\(\)[\s\S]*bulkPutBlocks\(prevBlocks\)/);
+  assert.match(templateText, /deleteBlocksForDate\(date\)[\s\S]*bulkPutBlocks\(created\)/);
+  assert.match(appText, /attachJournal\(\)/);
+  assert.match(storeText, /if \(!journalOnly && blockChangeHook\)/);
 });

@@ -17,6 +17,7 @@ import { openSettingsSheet } from "./settings.js";
 import { exportBackup, importBackup, pickImportFile, daysSinceBackup } from "./backup.js";
 import { toast, undoToast, announce, actionToast, confirmDialog } from "./ui.js";
 import * as syncRunner from "./sync-runner.js";
+import { attachJournal } from "./journal.js";
 
 const root = document.getElementById("app-root");
 
@@ -49,6 +50,7 @@ async function init() {
   // Local changes start queueing immediately, even while sync is off — turning
   // it on later should not leave the days in between looking empty.
   syncRunner.attach();
+  attachJournal();
 
   const lostData = await store.checkDataLossRisk();
   if (lostData) {

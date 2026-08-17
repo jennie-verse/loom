@@ -107,16 +107,22 @@ export async function getBlockById(id) {
 }
 
 // ---------- block change hook (sync.js listens here) ----------
-// Every single-block write goes through putBlock/deleteBlock, so one hook here
-// covers the agenda checkmark, the block sheet's Done switch, Undo, duplicate
-// and template application. bulkPutBlocks is deliberately NOT hooked: it is
-// only used by Import and by Undo of a bulk delete, which must not emit events.
+// The legacy events hook retains its original single-block scope. Journal has
+// a separate hook that also observes bulk writes and bulk deletions.
 
 let blockChangeHook = null;
+let journalBlockChangeHook = null;
 let hookSuppressed = false;
 
 export function setBlockChangeHook(fn) {
   blockChangeHook = typeof fn === "function" ? fn : null;
+}
+
+/** Journal observes every persisted block path, including bulk import,
+    date deletion, purge, replace, and their undo paths. It stays separate
+    from the legacy events hook so those events retain their original scope. */
+export function setJournalBlockChangeHook(fn) {
+  journalBlockChangeHook = typeof fn === "function" ? fn : null;
 }
 
 /** Runs fn with the hook off — used while applying data pulled from other
@@ -130,12 +136,13 @@ export async function withoutBlockHook(fn) {
   }
 }
 
-function notifyBlockChange(next, previous) {
-  if (!blockChangeHook || hookSuppressed) return;
-  try {
-    blockChangeHook(next, previous);
-  } catch {
-    // Syncing must never break a local save.
+function notifyBlockChange(next, previous, { journalOnly = false } = {}) {
+  if (hookSuppressed) return;
+  if (!journalOnly && blockChangeHook) {
+    try { blockChangeHook(next, previous); } catch { /* legacy events never block a local save */ }
+  }
+  if (journalBlockChangeHook) {
+    try { journalBlockChangeHook(next, previous); } catch { /* journal never blocks a local save */ }
   }
 }
 
@@ -156,9 +163,15 @@ export async function putBlock(block) {
 
 export async function bulkPutBlocks(blocks) {
   const db = await openDB();
+  const previous = new Map();
+  for (const block of blocks) {
+    try { previous.set(block.id, await reqToPromise(tx(db, "blocks", "readonly").get(block.id))); }
+    catch { previous.set(block.id, null); }
+  }
   const store = tx(db, "blocks", "readwrite");
   await Promise.all(blocks.map((b) => reqToPromise(store.put(b))));
   markHasData(true);
+  blocks.forEach((block) => notifyBlockChange(block, previous.get(block.id) || null, { journalOnly: true }));
   return blocks;
 }
 
@@ -176,8 +189,14 @@ export async function deleteBlock(id) {
 
 export async function deleteBlocksByIds(ids) {
   const db = await openDB();
+  const previous = [];
+  for (const id of ids) {
+    try { previous.push(await reqToPromise(tx(db, "blocks", "readonly").get(id))); }
+    catch { previous.push(null); }
+  }
   const store = tx(db, "blocks", "readwrite");
   await Promise.all(ids.map((id) => reqToPromise(store.delete(id))));
+  previous.forEach((block) => { if (block) notifyBlockChange(null, block, { journalOnly: true }); });
 }
 
 export async function deleteBlocksForDate(date) {
@@ -201,7 +220,9 @@ export async function deleteBlocksBefore(dateKeyExclusive) {
 
 export async function clearAllBlocks() {
   const db = await openDB();
+  const previous = await reqToPromise(tx(db, "blocks", "readonly").getAll()).catch(() => []);
   await reqToPromise(tx(db, "blocks", "readwrite").clear());
+  previous.forEach((block) => notifyBlockChange(null, block, { journalOnly: true }));
 }
 
 export async function countBlocks() {
