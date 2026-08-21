@@ -59,6 +59,10 @@ export function attach() {
   store.setBlockChangeHook((next, previous) => {
     const event = eventFor(next, previous);
     if (event) sync.queueEvent(event);
+  });
+  store.setSyncBlockChangeHook((next, previous) => {
+    if (next) sync.clearBlockTombstone(next.id);
+    else if (previous) sync.recordBlockDeletion(previous);
     schedulePush();
   });
 }
@@ -92,6 +96,16 @@ async function runSyncOnce() {
       const byId = new Map(localBlocks.map((b) => [b.id, b]));
       // 받은 것을 다시 이벤트로 올리지 않도록 훅을 잠시 끕니다.
       await store.withoutBlockHook(async () => {
+        const deletedIds = (remote.blockTombstones || [])
+          .filter((item) => {
+            const current = byId.get(item.id);
+            return current && String(item.deletedAt) >= stamp(current);
+          })
+          .map((item) => item.id);
+        if (deletedIds.length) {
+          await store.deleteBlocksByIds(deletedIds);
+          deletedIds.forEach((id) => byId.delete(id));
+        }
         for (const block of remote.blocks) {
           const current = byId.get(block.id);
           if (!current || stamp(block) > stamp(current)) {

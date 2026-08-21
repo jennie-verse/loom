@@ -52,6 +52,7 @@ export const KEYS = Object.freeze({
   lastSyncAt: "loom.lastSyncAt",
   lastRemoteBackupAt: "loom.lastRemoteBackupAt",
   pendingEvents: "loom.pendingEvents",
+  blockTombstones: "loom.blockTombstones.v1",
 });
 
 const BACKUP_KEEP = 12;
@@ -367,7 +368,61 @@ function stamp(item) {
   return String(item && item.updatedAt ? item.updatedAt : EPOCH);
 }
 
-/** 같은 id 는 updatedAt 이 최신인 쪽이 이깁니다. 어느 쪽도 사라지지 않습니다. */
+function tombstoneStamp(item) {
+  return String(item && item.deletedAt ? item.deletedAt : EPOCH);
+}
+
+function normalizeTombstones(value) {
+  const merged = new Map();
+  (Array.isArray(value) ? value : []).forEach((item) => {
+    if (!item || typeof item.id !== "string" || !item.id || Number.isNaN(Date.parse(item.deletedAt))) return;
+    const previous = merged.get(item.id);
+    if (!previous || tombstoneStamp(item) > tombstoneStamp(previous)) {
+      merged.set(item.id, { id: item.id, deletedAt: item.deletedAt });
+    }
+  });
+  return [...merged.values()];
+}
+
+function mergeTombstonesById(base, incoming) {
+  return normalizeTombstones([...(Array.isArray(base) ? base : []), ...(Array.isArray(incoming) ? incoming : [])]);
+}
+
+export function getBlockTombstones() {
+  return normalizeTombstones(parseJson(readItem(KEYS.blockTombstones, "[]"), []));
+}
+
+function saveBlockTombstones(tombstones) {
+  const normalized = normalizeTombstones(tombstones);
+  writeItem(KEYS.blockTombstones, JSON.stringify(normalized));
+  return normalized;
+}
+
+export function recordBlockDeletion(block) {
+  if (!block || typeof block.id !== "string" || !block.id) return null;
+  const tombstone = { id: block.id, deletedAt: new Date().toISOString() };
+  saveBlockTombstones(mergeTombstonesById(getBlockTombstones(), [tombstone]));
+  return tombstone;
+}
+
+export function clearBlockTombstone(id) {
+  if (!id) return;
+  saveBlockTombstones(getBlockTombstones().filter((item) => item.id !== id));
+}
+
+export function mergeBlockTombstones(incoming) {
+  return saveBlockTombstones(mergeTombstonesById(getBlockTombstones(), incoming));
+}
+
+export function applyBlockTombstones(items, tombstones) {
+  const deleted = new Map(normalizeTombstones(tombstones).map((item) => [item.id, item]));
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const tombstone = deleted.get(item && item.id);
+    return !tombstone || tombstoneStamp(tombstone) < stamp(item);
+  });
+}
+
+/** 같은 id 는 updatedAt 이 최신인 쪽이 이깁니다. 삭제는 tombstone이 별도로 이깁니다. */
 function mergeById(base, incoming) {
   const merged = new Map();
   (Array.isArray(base) ? base : []).forEach((item) => {
@@ -383,13 +438,12 @@ function mergeById(base, incoming) {
 
 /** 이 기기의 블록·템플릿을 한 파일로 올립니다. 기기마다 파일이 분리됩니다.
 
-    **올리기는 절대로 기록을 줄이지 않습니다.** 원격에 이미 있던 항목과 합집합을
+    **올리기는 tombstone 없는 기록을 실수로 줄이지 않습니다.** 원격 항목과 합집합을
     만들어 씁니다. 화면 상태가 아직 안 채워졌거나 IndexedDB 가 잠깐 안 열리는 등
     어떤 이유로든 빈 목록이 들어와도 원격 기록이 지워지지 않게 하기 위한 안전장치입니다.
     (2026-08-09: focus 에서 빈 목록이 올라가 원격 세션 3건이 실제로 사라졌습니다.)
 
-    이 규칙 때문에 한 기기에서 지운 블록은 원격에서 사라지지 않습니다.
-    지우기를 기기 간에 맞추려면 tide 처럼 tombstone 을 따로 둬야 합니다.
+    사용자가 지운 블록은 별도 tombstone으로 남겨 다른 기기에서도 숨깁니다.
 
     settings 는 올리기만 하고 받을 때 적용하지 않습니다. 글자 크기·시간 간격은
     기기마다 다른 값이 맞습니다. 백업에서 되돌릴 때를 위해 담아만 둡니다. */
@@ -403,13 +457,18 @@ export async function pushData({ settings, blocks, templates }) {
   const existing = await Shared.readFile(cfg, path);
   let previousBlocks = [];
   let previousTemplates = [];
+  let previousTombstones = [];
   if (existing.exists) {
     const previous = parseJson(existing.content, null);
     if (previous && previous.data) {
       if (Array.isArray(previous.data.blocks)) previousBlocks = previous.data.blocks;
       if (Array.isArray(previous.data.templates)) previousTemplates = previous.data.templates;
+      if (Array.isArray(previous.data.blockTombstones)) previousTombstones = previous.data.blockTombstones;
     }
   }
+
+  const blockTombstones = mergeTombstonesById(previousTombstones, getBlockTombstones());
+  const mergedBlocks = applyBlockTombstones(mergeById(previousBlocks, blocks), blockTombstones);
 
   const body = `${JSON.stringify({
     v: 1,
@@ -418,8 +477,9 @@ export async function pushData({ settings, blocks, templates }) {
     updatedAt: new Date().toISOString(),
     data: {
       settings,
-      blocks: mergeById(previousBlocks, blocks),
+      blocks: mergedBlocks,
       templates: mergeById(previousTemplates, templates),
+      blockTombstones,
     },
   }, null, 2)}\n`;
 
@@ -444,10 +504,11 @@ export async function pullData() {
   const files = entries.filter((entry) => (
     entry.type === "file" && /^data\.[a-z0-9-]+\.json$/i.test(entry.name)
   ));
-  if (files.length === 0) return { blocks: [], templates: [] };
+  if (files.length === 0) return { blocks: [], templates: [], blockTombstones: getBlockTombstones() };
 
   let blocks = [];
   let templates = [];
+  let blockTombstones = [];
   for (const entry of files) {
     const file = await Shared.readFile(cfg, entry.path);
     if (!file.exists) continue;
@@ -455,9 +516,12 @@ export async function pullData() {
     if (!payload || !payload.data) continue;
     blocks = mergeById(blocks, payload.data.blocks);
     templates = mergeById(templates, payload.data.templates);
+    blockTombstones = mergeTombstonesById(blockTombstones, payload.data.blockTombstones);
   }
+  blockTombstones = mergeBlockTombstones(blockTombstones);
+  blocks = applyBlockTombstones(blocks, blockTombstones);
   writeItem(KEYS.lastSyncAt, String(Date.now()));
-  return { blocks, templates };
+  return { blocks, templates, blockTombstones };
 }
 
 /* ── C. 백업 ───────────────────────────────────────────────────────────── */

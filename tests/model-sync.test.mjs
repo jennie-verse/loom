@@ -87,6 +87,42 @@ test('sync is disabled without credentials and context', () => {
   assert.equal(sync.pendingEventCount(), 0);
 });
 
+test('block deletion tombstones are durable, deduplicated, and clear on restore', () => {
+  localStorage.removeItem(sync.KEYS.blockTombstones);
+  const deleted = sync.recordBlockDeletion({ id: 'block-deleted' });
+  assert.equal(deleted.id, 'block-deleted');
+  assert.ok(Date.parse(deleted.deletedAt));
+  assert.deepEqual(sync.getBlockTombstones(), [deleted]);
+
+  const newer = { id: 'block-deleted', deletedAt: '2099-01-01T00:00:00.000Z' };
+  sync.mergeBlockTombstones([{ id: 'block-deleted', deletedAt: '2000-01-01T00:00:00.000Z' }, newer]);
+  assert.deepEqual(sync.getBlockTombstones(), [newer]);
+  sync.clearBlockTombstone('block-deleted');
+  assert.deepEqual(sync.getBlockTombstones(), []);
+});
+
+test('tombstones suppress stale blocks but allow an explicitly newer restore', () => {
+  const tombstones = [{ id: 'block-a', deletedAt: '2026-08-21T12:00:00.000Z' }];
+  const blocks = [
+    { id: 'block-a', updatedAt: '2026-08-21T11:59:59.000Z' },
+    { id: 'block-b', updatedAt: '2026-08-21T11:00:00.000Z' },
+  ];
+  assert.deepEqual(sync.applyBlockTombstones(blocks, tombstones).map((item) => item.id), ['block-b']);
+  assert.deepEqual(sync.applyBlockTombstones([
+    { id: 'block-a', updatedAt: '2026-08-21T12:00:01.000Z' },
+  ], tombstones).map((item) => item.id), ['block-a']);
+});
+
+test('sync runner applies remote tombstones and observes bulk block deletion paths', () => {
+  const runner = source('src/sync-runner.js');
+  const storeText = source('src/store.js');
+  assert.match(runner, /setSyncBlockChangeHook/);
+  assert.match(runner, /remote\.blockTombstones/);
+  assert.match(runner, /deleteBlocksByIds\(deletedIds\)/);
+  assert.match(storeText, /if \(syncBlockChangeHook\)/);
+  assert.match(source('src/sync.js'), /data:\s*\{[\s\S]*blockTombstones/);
+});
+
 test('journal block projection includes every scheduled field regardless of completion', () => {
   const block = model.normalizeBlock({
     id: 'fixture-block', date: '2026-08-17', start: 9 * 60, duration: 45,

@@ -111,11 +111,17 @@ export async function getBlockById(id) {
 // a separate hook that also observes bulk writes and bulk deletions.
 
 let blockChangeHook = null;
+let syncBlockChangeHook = null;
 let journalBlockChangeHook = null;
 let hookSuppressed = false;
 
 export function setBlockChangeHook(fn) {
   blockChangeHook = typeof fn === "function" ? fn : null;
+}
+
+/** Sync observes every block write/delete path, including bulk operations. */
+export function setSyncBlockChangeHook(fn) {
+  syncBlockChangeHook = typeof fn === "function" ? fn : null;
 }
 
 /** Journal observes every persisted block path, including bulk import,
@@ -140,6 +146,9 @@ function notifyBlockChange(next, previous, { journalOnly = false } = {}) {
   if (hookSuppressed) return;
   if (!journalOnly && blockChangeHook) {
     try { blockChangeHook(next, previous); } catch { /* legacy events never block a local save */ }
+  }
+  if (syncBlockChangeHook) {
+    try { syncBlockChangeHook(next, previous); } catch { /* sync never blocks a local save */ }
   }
   if (journalBlockChangeHook) {
     try { journalBlockChangeHook(next, previous); } catch { /* journal never blocks a local save */ }

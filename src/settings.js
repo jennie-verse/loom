@@ -18,8 +18,8 @@ import { APP_BUILD } from "./version.js";
       fixed at creation and goes into the remote file names, so a name added
       afterwards would only change the label — the files would stay
       `context-3f2a1b9c`. Only a–z and 0–9 survive into the id.
-   2. Uploads never shrink what is stored remotely, which also means deleting
-      here does not delete on other devices. That is stated on screen.
+   2. Ordinary uploads never shrink remote data accidentally. Intentional block
+      deletions are represented by durable tombstones and applied on every device.
    ────────────────────────────────────────────────────────────────────── */
 
 function buildSyncSection(sec) {
@@ -105,7 +105,7 @@ function buildSyncSection(sec) {
 
   const warn = document.createElement("p");
   warn.className = "hint";
-  warn.textContent = "Deleting a block here does not delete it on your other devices.";
+  warn.textContent = "Deleted blocks sync to your other devices the next time each device connects.";
   sec.appendChild(warn);
 
   function fmtWhen(ms) {
