@@ -58,6 +58,15 @@ test('shared sync module is loaded dynamically', () => {
   assert.doesNotMatch(text, /^import\s+.*shared\/v1\/sync\.js/m);
 });
 
+test('sync and journal derive the repository owner from the Pages hostname', () => {
+  for (const path of ['src/sync.js', 'src/journal.js']) {
+    const text = source(path);
+    assert.match(text, /globalThis\.location\?\.hostname/);
+    assert.match(text, /HOSTNAME\.endsWith\(["']\.github\.io["']\)/);
+    assert.doesNotMatch(text, /owner:\s*["']jennie-verse["']/);
+  }
+});
+
 test('service worker allows cross-origin GitHub API requests', () => {
   const worker = source('sw.js');
   assert.match(worker, /url\.origin !== self\.location\.origin/);

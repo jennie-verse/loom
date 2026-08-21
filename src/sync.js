@@ -15,6 +15,7 @@
 import { LIMITS, clampText, pad2 } from "./model.js";
 
 const NAMESPACE = "loom";
+const HOSTNAME = globalThis.location?.hostname || "";
 
 /* ── 공용 모듈은 필요할 때만 부릅니다 ──────────────────────────────────────
 
@@ -41,7 +42,9 @@ async function api() {
 }
 
 const REPO = Object.freeze({
-  owner: "jennie-verse",
+  owner: HOSTNAME.endsWith(".github.io")
+    ? HOSTNAME.slice(0, -".github.io".length)
+    : "",
   repo: "webapp-data",
   branch: "main",
 });

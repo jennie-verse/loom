@@ -3,7 +3,14 @@ import * as sync from "./sync.js";
 import { blockToJournalRecord, localIso } from "./journal-record.js";
 
 const ENABLED_KEY = "loom.journalEnabled.v1";
-const REPO = Object.freeze({ owner: "jennie-verse", repo: "webapp-data", branch: "main" });
+const HOSTNAME = globalThis.location?.hostname || "";
+const REPO = Object.freeze({
+  owner: HOSTNAME.endsWith(".github.io")
+    ? HOSTNAME.slice(0, -".github.io".length)
+    : "",
+  repo: "webapp-data",
+  branch: "main",
+});
 let clientPromise = null;
 let listener = null;
 let lastState = { status: "not reported", pendingCount: 0, errorCode: "" };
