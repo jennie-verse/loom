@@ -91,12 +91,6 @@ function buildSyncSection(sec) {
   enableRow.append(enableLbl, enableSwitch);
   sec.appendChild(enableRow);
 
-  const contentRow = document.createElement("div"); contentRow.className = "settings-row";
-  const contentLabel = document.createElement("div"); contentLabel.className = "lbl"; contentLabel.textContent = "Upload content to private Journal";
-  const contentSwitch = document.createElement("button"); contentSwitch.type = "button"; contentSwitch.className = "switch"; contentSwitch.setAttribute("role", "switch");
-  contentRow.append(contentLabel, contentSwitch); sec.appendChild(contentRow);
-  const contentHint = document.createElement("p"); contentHint.className = "hint"; contentHint.textContent = "When off, titles, subtitles, notes and details are omitted. This is separate from Daybook Compact and does not erase Git history."; sec.appendChild(contentHint);
-
   // --- actions ---
   const actionRow = document.createElement("div");
   actionRow.style.display = "flex";
@@ -252,6 +246,22 @@ function buildJournalSection(sec) {
   enableSwitch.setAttribute("role", "switch");
   enableRow.append(enableLabel, enableSwitch);
   sec.appendChild(enableRow);
+
+  const contentRow = document.createElement("div");
+  contentRow.className = "settings-row";
+  const contentLabel = document.createElement("div");
+  contentLabel.className = "lbl";
+  contentLabel.textContent = "Upload content to private Journal";
+  const contentSwitch = document.createElement("button");
+  contentSwitch.type = "button";
+  contentSwitch.className = "switch";
+  contentSwitch.setAttribute("role", "switch");
+  contentRow.append(contentLabel, contentSwitch);
+  sec.appendChild(contentRow);
+  const contentHint = document.createElement("p");
+  contentHint.className = "hint";
+  contentHint.textContent = "When off, titles, subtitles, notes and details are omitted. This is separate from Daybook Compact and does not erase Git history.";
+  sec.appendChild(contentHint);
 
   const status = document.createElement("p");
   status.className = "hint";

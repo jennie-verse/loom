@@ -165,6 +165,18 @@ test('journal uses a separate default-off key and dynamically loads shared v2', 
   assert.doesNotMatch(text, /^import\s+.*shared\/v2\/journal\.js/m);
 });
 
+test('Journal content control is declared inside the Journal settings section', () => {
+  const settingsSource = source('src/settings.js');
+  const start = settingsSource.indexOf('function buildJournalSection');
+  const end = settingsSource.indexOf('export function openSettingsSheet');
+  const section = settingsSource.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(section, /const contentSwitch = document\.createElement\("button"\)/);
+  assert.match(section, /contentSwitch\.addEventListener\("click"/);
+  const syncSection = settingsSource.slice(settingsSource.indexOf('function buildSyncSection'), start);
+  assert.doesNotMatch(syncSection, /Upload content to private Journal/);
+});
+
 test('journal observes single, bulk, date-delete, purge, clear, replace, and undo paths without widening legacy events', () => {
   const storeText = source('src/store.js');
   const backupText = source('src/backup.js');

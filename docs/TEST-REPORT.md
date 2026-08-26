@@ -3,6 +3,10 @@
 검토일: 2026-08-05
 당시 검토 방법: 2026-08-05에는 별도 `Deliverable/` staging에서 브라우저 검증을 수행했습니다. 현재는 `WebApp/Published/`에서 `python3 -m http.server 8080`을 실행하고 `http://localhost:8080/loom/`을 열어 GitHub Pages 하위 경로를 재현합니다. 실제 iPhone 터치·회전·IME는 계속 Pending입니다.
 
+## 2026-08-26 Journal 설정 회귀 수정
+
+Journal content switch가 Sync section에서 선언되고 Journal section에서 참조되어 Settings를 열 때 `ReferenceError`가 발생하던 배포 회귀를 수정했습니다. content switch를 Journal section으로 옮기고 이를 고정하는 회귀 검사를 추가했습니다. 저장소 소유 검사 17건, JavaScript syntax, `git diff --check`를 통과했으며 로컬 GitHub Pages형 경로에서 Settings → Journal의 `Include in journal`과 `Upload content to private Journal`이 함께 표시되고 console warning/error가 0건임을 확인했습니다. 실제 iPhone/iPad와 private token E2E는 Pending입니다.
+
 ## 2026-08-10 현재 재실행 결과
 
 `npm ci && npm test`로 저장소 소유 model/sync contract 7건을 재실행해 **7건 통과, 0건 실패**를 확인했습니다. GitHub Actions test workflow도 같은 명령을 사용합니다. 아래의 144건 기록은 당시 외부 harness 결과이며 현재 결과와 분리합니다.
