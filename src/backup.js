@@ -3,6 +3,7 @@
 import * as store from "./store.js";
 import { pad2 } from "./model.js";
 import { toast, undoToast, confirmDialog } from "./ui.js";
+import { exportActivityLedger, replaceActivityLedger } from "./journal.js";
 
 const FORMAT = "loom-backup";
 const VERSION = 1;
@@ -26,6 +27,7 @@ export async function buildBackupPayload() {
     exportedAt: new Date().toISOString(),
     blocks,
     templates,
+    journalActivity: exportActivityLedger(),
   };
 }
 
@@ -90,16 +92,19 @@ export async function importBackup(file, { onDone } = {}) {
     });
     if (!ok) return;
     const [prevBlocks, prevTemplates] = await Promise.all([store.getAllBlocks(), store.getTemplates()]);
+    const prevJournalActivity = exportActivityLedger();
     await store.clearAllBlocks();
     await store.bulkPutBlocks(data.blocks);
     for (const t of prevTemplates) await store.deleteTemplate(t.id);
     for (const t of data.templates) await store.putTemplate(t);
+    if (Array.isArray(data.journalActivity)) replaceActivityLedger(data.journalActivity);
     undoToast(`Replaced with backup (${data.blocks.length} blocks)`, {
       onUndo: async () => {
         await store.clearAllBlocks();
         await store.bulkPutBlocks(prevBlocks);
         for (const t of data.templates) await store.deleteTemplate(t.id);
         for (const t of prevTemplates) await store.putTemplate(t);
+        replaceActivityLedger(prevJournalActivity);
         if (onDone) onDone();
       },
     });
@@ -128,6 +133,7 @@ export async function importBackup(file, { onDone } = {}) {
     if (!current) added += 0, await store.putTemplate(tpl);
     else await store.putTemplate(tpl);
   }
+  if (Array.isArray(data.journalActivity)) replaceActivityLedger(data.journalActivity, { merge: true });
   toast(`Merged — added ${added} · updated ${updated} · skipped ${skipped}`);
   if (onDone) onDone();
 }

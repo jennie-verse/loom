@@ -219,3 +219,9 @@ loom이 만든 파일을 그대로 두고 atlas·trace의 실제 앱을 띄웠�
 > `loom-2026.08.10-sync1`을 문자열로 찾으면 나오지 않습니다.
 > **`const VERSION = "2026.08.10-sync1"`를 찾아야 합니다.** 실행 시 값과 옛 캐시
 > 정리(`key.startsWith("loom-")`)는 정상 동작합니다.
+
+## 2026-08-26 Journal activity/content
+
+- **Pass:** 18개 회귀 검사, 전체 source syntax, diff-check; 실제 변경일 activity, 90일 ledger, pending 정제, redaction, backup/restore/clear.
+- **Pass:** desktop·390×844에서 Journal 설정과 네 컨트롤, overflow 0, console warning/error 0.
+- **Pending:** 실제 private E2E와 iPhone/iPad Home Screen의 touch/rotation/IME·저장 문맥.

@@ -49,8 +49,11 @@ export function isJournalContentEnabled() { return readItem(CONTENT_KEY) !== "0"
 export async function setJournalContentEnabled(enabled) {
   writeItem(CONTENT_KEY, enabled ? "1" : "0");
   const client = await getClient();
-  if (client && !enabled) await client.transformPending((record) => ({ ...record, title: "Loom block", updatedAt: localIso(), data: Object.fromEntries(Object.entries({ ...record.data, contentIncluded: false }).filter(([key]) => !["title", "subtitle", "note", "detail"].includes(key))) }));
+  if (client && !enabled) await client.transformPending((record) => ({ ...withoutJournalContent(record), updatedAt: localIso() }));
   await reportJournalStatus();
+}
+export function withoutJournalContent(record) {
+  return { ...record, title: "Loom block", data: Object.fromEntries(Object.entries({ ...record.data, contentIncluded: false }).filter(([key]) => !["title", "subtitle", "note", "detail"].includes(key))) };
 }
 
 export function getJournalState() {
@@ -125,6 +128,26 @@ async function queueBlockChange(next, previous) {
   }
 }
 function readActivity() { try { const value = JSON.parse(readItem(ACTIVITY_KEY) || "{}"); return value && typeof value === "object" ? value : {}; } catch { return {}; } }
+export function exportActivityLedger() { return Object.values(readActivity()); }
+export function replaceActivityLedger(rows, { merge = false } = {}) {
+  const entries = merge ? readActivity() : {};
+  const cutoff = Date.now() - 90 * 86400000;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) || typeof row.blockId !== "string" || !row.blockId) continue;
+    if (!Array.isArray(row.actions) || !Number.isFinite(Date.parse(row.firstAt)) || !Number.isFinite(Date.parse(row.lastAt)) || Date.parse(row.lastAt) < cutoff) continue;
+    const key = `${row.date}:${row.blockId}`;
+    if (!entries[key] || Date.parse(entries[key].lastAt) <= Date.parse(row.lastAt)) entries[key] = {
+      date: row.date, blockId: row.blockId, title: String(row.title || ""), sourceDate: row.sourceDate,
+      previousSourceDate: row.previousSourceDate, actions: [...new Set(row.actions.filter((action) => typeof action === "string"))],
+      firstAt: row.firstAt, lastAt: row.lastAt,
+    };
+  }
+  writeItem(ACTIVITY_KEY, JSON.stringify(entries));
+  return entries;
+}
+export function clearActivityLedger() {
+  try { localStorage.removeItem(ACTIVITY_KEY); return true; } catch { return false; }
+}
 function inferAction(next, previous) { if (!previous) return "created"; if (!next) return "deleted"; if (next.date !== previous.date) return "moved"; if (next.done !== previous.done) return next.done ? "completed" : "reopened"; return "edited"; }
 function recordLocalActivity(next, previous) {
   const block = next || previous; const at = localIso(); const date = at.slice(0, 10); const key = `${date}:${block.id}`; const entries = readActivity(); const current = entries[key]; const action = inferAction(next, previous);
@@ -179,6 +202,12 @@ export async function backfillJournal(blocks, { from, to, totalDates }) {
     processedDates: result.error ? 0 : totalDates, totalDates, updatedAt: localIso(),
   } });
   return result;
+}
+
+export async function redactJournalContent(from, to) {
+  const client = await getClient();
+  if (!client?.redactRange) return { error: Object.assign(new Error("Update Shared and reload Loom first."), { code: "CONTRACT_STALE" }) };
+  return client.redactRange({ from, to, transform: withoutJournalContent });
 }
 
 export async function refreshJournalState() {

@@ -20,6 +20,7 @@ function memoryStorage() {
 
 globalThis.localStorage = memoryStorage();
 const sync = await import('../src/sync.js');
+const journal = await import('../src/journal.js');
 
 test('time parsing and snapping preserve day bounds', () => {
   assert.equal(model.parseHHMM('07:30'), 450);
@@ -158,6 +159,19 @@ test('content-off blocks are neutral and activity records use the real activity 
   assert.equal(activity.kind, 'block-activity'); assert.equal(activity.id, 'b1:2026-08-26'); assert.equal(activity.title, 'Loom block');
 });
 
+test('redaction strips block text and the optional backup ledger is validated', () => {
+  const record = blockToJournalRecord({ id: 'b1', date: '2026-08-26', start: 600, duration: 30, title: 'Private', subtitle: 'Secret', note: 'N', detail: 'D', updatedAt: '2026-08-26T10:00:00-05:00' });
+  const redacted = journal.withoutJournalContent(record);
+  assert.equal(redacted.title, 'Loom block');
+  assert.equal(redacted.data.title, undefined);
+  assert.equal(redacted.data.note, undefined);
+  assert.equal(redacted.data.contentIncluded, false);
+  const at = new Date().toISOString();
+  const restored = journal.replaceActivityLedger([{ date: at.slice(0, 10), blockId: 'b1', title: 'Minimum title', sourceDate: at.slice(0, 10), actions: ['edited'], firstAt: at, lastAt: at }]);
+  assert.equal(Object.keys(restored).length, 1);
+  assert.match(source('src/backup.js'), /journalActivity: exportActivityLedger\(\)/);
+});
+
 test('journal uses a separate default-off key and dynamically loads shared v2', () => {
   const text = source('src/journal.js');
   assert.match(text, /loom\.journalEnabled\.v1/);
@@ -173,6 +187,7 @@ test('Journal content control is declared inside the Journal settings section', 
   assert.ok(start >= 0 && end > start);
   assert.match(section, /const contentSwitch = document\.createElement\("button"\)/);
   assert.match(section, /contentSwitch\.addEventListener\("click"/);
+  assert.match(section, /Remove content/);
   const syncSection = settingsSource.slice(settingsSource.indexOf('function buildSyncSection'), start);
   assert.doesNotMatch(syncSection, /Upload content to private Journal/);
 });

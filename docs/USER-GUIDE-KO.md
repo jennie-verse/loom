@@ -87,3 +87,9 @@ Loom은 인터넷 없이도 동작하도록 만든 PWA(Progressive Web App)입�
 - **글자 크기·시간 간격 같은 표시 설정은 기기마다 따로입니다.** 백업에는 담기지만 다른 기기로 옮겨 오지는 않습니다.
 - 인터넷이 없으면 변경 사항이 기기에 쌓였다가 다음에 연결될 때 올라갑니다. `Sync now`로 직접 돌릴 수도 있습니다.
 - 화면 맨 아래 `About`의 **App version**이 지금 이 기기에서 실제로 돌고 있는 버전입니다. 고친 것이 반영되지 않은 것 같으면 이 값부터 확인하세요.
+
+## Daybook Journal의 날짜와 개인정보
+
+- block 자체는 예정 날짜에 남고, 생성·편집·완료·재개·이동·삭제는 실제 수행 날짜의 별도 activity로 기록됩니다.
+- **Upload content to private Journal**을 끄면 title/subtitle/note/details와 pending 본문이 제외됩니다. **Remove content**는 선택 기간의 현재 projection을 정제할 뿐 Git 과거 commit을 완전히 삭제하지 않습니다.
+- Journal off 중에도 90일 메타데이터 activity가 이 기기에만 남고 JSON 백업/복원에 포함됩니다. **Clear captured activity**는 이 로컬 원장만 지웁니다.

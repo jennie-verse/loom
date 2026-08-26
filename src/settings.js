@@ -308,7 +308,15 @@ function buildJournalSection(sec) {
   importButton.type = "button";
   importButton.className = "btn";
   importButton.textContent = "Import";
-  actions.append(previewButton, importButton);
+  const redactButton = document.createElement("button");
+  redactButton.type = "button";
+  redactButton.className = "btn";
+  redactButton.textContent = "Remove content";
+  const clearActivityButton = document.createElement("button");
+  clearActivityButton.type = "button";
+  clearActivityButton.className = "btn";
+  clearActivityButton.textContent = "Clear captured activity";
+  actions.append(previewButton, importButton, redactButton, clearActivityButton);
   sec.appendChild(actions);
   const previewLine = document.createElement("p");
   previewLine.className = "hint";
@@ -377,6 +385,32 @@ function buildJournalSection(sec) {
       ? "Import paused · pending blocks will retry when online"
       : `Imported ${result.written} block${result.written === 1 ? "" : "s"}`;
     refresh(await journal.refreshJournalState());
+  });
+  redactButton.addEventListener("click", async () => {
+    if (!journal.isJournalEnabled()) { toast("Turn on Include in journal first"); return; }
+    if (journal.isJournalContentEnabled()) { toast("Turn off content upload on every active installation first"); return; }
+    if (!rangeDays(from.value, to.value)) { toast("Choose a valid date range"); return; }
+    const ok = await confirmDialog({
+      title: "Remove content from current Daybook records?",
+      message: "This installation's current projections will become metadata-only. Loom blocks, normal Sync, and existing Git history stay unchanged.",
+      confirmLabel: "Remove content",
+    });
+    if (!ok) return;
+    const result = await journal.redactJournalContent(from.value, to.value);
+    previewLine.textContent = result.error
+      ? `Partial · ${result.processedDates || 0}/${result.totalDates || 0} day(s) · pending work will retry`
+      : `Content removed from ${result.redactedRecords} current record(s)`;
+    refresh(await journal.refreshJournalState());
+  });
+  clearActivityButton.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Clear captured activity?",
+      message: "This clears Loom's 90-day local activity history on this device. Blocks and remote Journal records are unchanged.",
+      confirmLabel: "Clear activity",
+    });
+    if (!ok) return;
+    journal.clearActivityLedger();
+    previewLine.textContent = "Captured activity cleared on this device";
   });
 
   const detach = journal.onJournalState(refresh);
