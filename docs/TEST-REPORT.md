@@ -225,3 +225,40 @@ loom이 만든 파일을 그대로 두고 atlas·trace의 실제 앱을 띄웠�
 - **Pass:** 18개 회귀 검사, 전체 source syntax, diff-check; 실제 변경일 activity, 90일 ledger, pending 정제, redaction, backup/restore/clear.
 - **Pass:** desktop·390×844에서 Journal 설정과 네 컨트롤, overflow 0, console warning/error 0.
 - **Pending:** 실제 private E2E와 iPhone/iPad Home Screen의 touch/rotation/IME·저장 문맥.
+
+## 2026-08-26 시작 시각 프리셋 · 미세 조정 버튼 (B-1)
+
+계획서: `Plan/webapp-benchmark/Productivity_App_Benchmark_Plan_2026-08-26.md` B-1 항목.
+
+### 바꾼 것
+
+- `src/model.js` — `START_PRESET_DEFAULTS`(8개), `MAX_START_PRESETS`(12), `sanitizeStartPresets()`(중복 제거·정렬·상한), `moveStartKeepingDuration()`(day-view.js 드래그 이동과 동일한 클램프 공식 `Math.max(0, Math.min(MINUTES_PER_DAY - duration, start + delta))`을 재사용 가능한 순수 함수로 추출). `DEFAULT_SETTINGS.startPresets` 추가.
+- `src/block-sheet.js` — Start 입력 아래에 프리셋 칩 행(설정값 기준)과 `-1h/-10m/+10m/+1h` 조정 칩 행 추가. 기존 `change` 핸들러를 `applyStartChange()`로 추출해 프리셋·조정 버튼과 공유.
+- `src/settings.js` — "Start presets" 섹션 추가: 현재 프리셋 목록(제거 가능, 확인 필요), 시간 추가(중복·상한 검사), 기본값으로 초기화(확인 필요).
+- `tests/model-sync.test.mjs` — 프리셋 sanitize·기본값·moveStartKeepingDuration 클램프 테스트 2건 추가.
+- `src/version.js`, `sw.js` — 캐시 버전 `2026.08.26-journal-activity-settings2` → `2026.08.26-start-presets`.
+
+### 통과
+
+- [x] `npm test` — **20/20 통과** (기존 18건 + 신규 2건), 콘솔·프로세스 오류 0건
+- [x] `node --check`로 수정한 5개 JS 파일 전부 구문 정상
+- [x] 프리셋 버튼 클릭 시 시작 시각만 바뀌고 Duration은 그대로 유지 (코드 경로: `startInput.value` 변경 + `applyStartChange()`만 호출, Duration 관련 상태는 건드리지 않음)
+- [x] `-1h/-10m/+10m/+1h`는 `moveStartKeepingDuration(start, duration, delta)`로 이동 — day-view.js의 기존 드래그 클램프 공식과 동일한 식이며, 자정 넘김 시 지금과 같이 Duration을 유지한 채 시작 시각만 하루 경계에서 멈춤(0 또는 `1440 - duration`)
+- [x] 겹침 처리는 별도 로직을 추가하지 않음 — 프리셋·조정 버튼도 결국 `store.putBlock()`으로 저장되고, 렌더링 시 기존 `computeOverlapLayout()`이 그대로 처리 (드래그와 동일 경로)
+- [x] 블록 데이터 스키마 불변 — `normalizeBlock()` 시그니처·필드 변경 없음
+- [x] Journal `block`/`block-activity` 계약 불변 — `journal-record.js`, `journal.js` 미수정
+- [x] 프리셋 목록은 `store.getSettings()/setSettings()`가 쓰는 기존 localStorage 키(`DEFAULT_SETTINGS` 스프레드)에 얹혀 저장되므로 새 키를 만들지 않음, 옛 저장값(필드 없음)도 기본 8개로 자연히 대체됨
+- [x] Settings에서 프리셋 추가/삭제(확인 다이얼로그 경유)/초기화(확인 다이얼로그 경유) 동작, `persist()`를 통해 즉시 저장되고 `onChanged`로 반영
+- [x] 최대 12개 제한과 중복 방지, 잘못된 시간 입력 시 토스트 안내
+- [x] 외부 CDN·웹폰트 서버 없음, 새 상대경로 위반 없음 (신규 네트워크 요청 없음)
+- [x] 터치 영역 — 프리셋·조정 버튼은 기존 `.chip` 클래스를 그대로 사용(`min-height:44px; min-width:44px`, 폰트는 `calc(var(--f) * .95)`)하므로 글자 크기 6단계 전부에서 44px 유지 및 6px/8px 단계에서도 기존 Duration 칩과 동일한 줄바꿈(`flex-wrap:wrap`) 규칙을 상속받아 겹치지 않음 — 새 CSS 규칙을 추가하지 않았기 때문에 기존 칩과 동일 보장
+- [x] 입력창(시간 추가용 `<input type="time">`) 16px 규칙은 전역 `input` 규칙(`app.css`)을 그대로 상속
+
+### Pending — 실기기(iPhone/iPad)에서 확인 필요
+
+- [ ] 실제 손가락으로 프리셋·조정 칩을 6/8/10/12/14/17px 각 단계에서 눌러보고 시각적으로 겹치거나 잘리는 곳이 없는지
+- [ ] 키보드(Settings의 프리셋 추가용 `<input type="time">`)가 열린 상태에서 Add 버튼이 화면에 가려지지 않는지
+- [ ] iOS `<input type="time">` 휠로 프리셋을 추가할 때 Safe Area 하단과 겹치지 않는지
+- [ ] 프리셋으로 시작 시각을 바꿔 다른 블록과 실제로 겹쳤을 때 3열 초과 시 `+N` 칩이 드래그로 겹쳤을 때와 동일하게 보이는지 (로직은 공유되나 실기기 시각 확인 필요)
+- [ ] 자정 근처(23:xx) 블록에 `+1h`를 여러 번 눌러 하루 끝에서 멈추는 체감이 자연스러운지
+- [ ] 기존에 Home Screen에 추가해 둔 이전 버전에서 새 배포로 업데이트된 뒤 Service Worker가 새 캐시로 갈아타는지(자동 새로고침 없이 앱을 껐다 켰을 때)

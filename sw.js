@@ -1,7 +1,7 @@
 // Keep VERSION in step with APP_BUILD in ./src/version.js.
 // The Settings screen shows APP_BUILD so a stale cached build is visible at a
 // glance — "deployed" and "running on the device" are not the same thing.
-const VERSION = "2026.08.26-journal-activity-settings2";
+const VERSION = "2026.08.26-start-presets";
 const CACHE_NAME = `loom-${VERSION}`;
 
 const APP_SHELL = [

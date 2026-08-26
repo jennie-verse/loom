@@ -23,6 +23,16 @@ export const FONT_STEPS = [6, 8, 10, 12, 14, 17];
 export const HOUR_STEPS = [48, 64, 80, 96, 120];
 export const SNAP_STEPS = [5, 10, 15, 30];
 
+// Start-time presets shown on the block editor (minutes since midnight).
+export const START_PRESET_DEFAULTS = [420, 480, 540, 600, 780, 840, 1140, 1260]; // 07:00 08:00 09:00 10:00 13:00 14:00 19:00 21:00
+export const MAX_START_PRESETS = 12;
+export const START_NUDGES = [
+  { label: "-1h", minutes: -60 },
+  { label: "-10m", minutes: -10 },
+  { label: "+10m", minutes: 10 },
+  { label: "+1h", minutes: 60 },
+];
+
 export const DEFAULT_SETTINGS = {
   font: 12,
   hourHeight: 80,
@@ -32,6 +42,7 @@ export const DEFAULT_SETTINGS = {
   weekStart: 0, // 0 = Sunday
   onboarded: false,
   lastBackupAt: null,
+  startPresets: START_PRESET_DEFAULTS,
 };
 
 export const MINUTES_PER_DAY = 1440;
@@ -101,6 +112,25 @@ export function isWeekend(key) {
 export function snapMinutes(min, unit) {
   const snapped = Math.round(min / unit) * unit;
   return Math.max(0, Math.min(MINUTES_PER_DAY, snapped));
+}
+
+// Moves a block's start by deltaMinutes while keeping its duration fixed,
+// clamped to the day — same clamp day-view.js uses when dragging a block.
+export function moveStartKeepingDuration(start, duration, deltaMinutes) {
+  return Math.max(0, Math.min(MINUTES_PER_DAY - duration, start + deltaMinutes));
+}
+
+export function sanitizeStartPresets(list) {
+  const seen = new Set();
+  const out = [];
+  for (const v of Array.isArray(list) ? list : []) {
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n) || n < 0 || n > MINUTES_PER_DAY || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+    if (out.length >= MAX_START_PRESETS) break;
+  }
+  return out.sort((a, b) => a - b);
 }
 
 // ---------- validation ----------

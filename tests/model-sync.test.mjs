@@ -209,3 +209,22 @@ test('journal observes single, bulk, date-delete, purge, clear, replace, and und
   assert.match(appText, /attachJournal\(\)/);
   assert.match(storeText, /if \(!journalOnly && blockChangeHook\)/);
 });
+
+test('start-time presets have sane defaults and sanitize user-edited lists', () => {
+  assert.deepEqual(model.START_PRESET_DEFAULTS, [420, 480, 540, 600, 780, 840, 1140, 1260]);
+  assert.equal(model.MAX_START_PRESETS, 12);
+  assert.deepEqual(model.DEFAULT_SETTINGS.startPresets, model.START_PRESET_DEFAULTS);
+
+  // dedupes, drops invalid entries, sorts ascending, caps at MAX_START_PRESETS
+  assert.deepEqual(model.sanitizeStartPresets([600, 420, 420, -5, 9999, 'x', 480]), [420, 480, 600]);
+  const thirteen = Array.from({ length: 13 }, (_, i) => i * 60);
+  assert.equal(model.sanitizeStartPresets(thirteen).length, 12);
+  assert.deepEqual(model.sanitizeStartPresets(undefined), []);
+});
+
+test('moving a block start keeps duration fixed and clamps to the day, matching drag behavior', () => {
+  assert.equal(model.moveStartKeepingDuration(540, 60, 60), 600); // +1h
+  assert.equal(model.moveStartKeepingDuration(540, 60, -600), 0); // clamp at start of day
+  assert.equal(model.moveStartKeepingDuration(1400, 30, 60), model.MINUTES_PER_DAY - 30); // clamp at end of day, duration preserved
+  assert.equal(model.moveStartKeepingDuration(60, 10, -600), 0);
+});

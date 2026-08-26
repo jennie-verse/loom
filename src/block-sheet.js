@@ -1,7 +1,7 @@
 // block-sheet.js — create/edit sheet: focus trap, draft scratch storage.
 // Final writes go through store.js (per file responsibility table).
 
-import { COLORS, DURATION_CHIPS, LIMITS, normalizeBlock, snapMinutes, hhmm, parseHHMM, clampText } from "./model.js";
+import { COLORS, DURATION_CHIPS, LIMITS, MINUTES_PER_DAY, normalizeBlock, snapMinutes, moveStartKeepingDuration, sanitizeStartPresets, hhmm, parseHHMM, clampText } from "./model.js";
 import * as store from "./store.js";
 import { confirmDialog, announce } from "./ui.js";
 
@@ -148,6 +148,68 @@ export async function openBlockSheet({ date, block = null, start = null, duratio
   startHint.className = "hint";
   startField.appendChild(startInput);
   startField.appendChild(startHint);
+
+  function applyStartChange() {
+    const raw = parseHHMM(startInput.value);
+    if (raw == null) return;
+    const snapped = snapMinutes(raw, snapUnit);
+    if (snapped !== raw) {
+      startInput.value = hhmm(snapped);
+      startHint.textContent = `Rounded to ${hhmm(snapped)}`;
+    } else {
+      startHint.textContent = "";
+    }
+  }
+
+  // ----- Start presets -----
+  const presets = sanitizeStartPresets(settings.startPresets);
+  if (presets.length) {
+    const presetRow = document.createElement("div");
+    presetRow.className = "chiprow";
+    presetRow.style.marginTop = "8px";
+    presets.forEach((min) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = hhmm(min);
+      b.setAttribute("aria-label", `Set start to ${hhmm(min)}`);
+      b.addEventListener("click", () => {
+        startInput.value = hhmm(min);
+        applyStartChange();
+      });
+      presetRow.appendChild(b);
+    });
+    startField.appendChild(presetRow);
+  }
+
+  // ----- Start nudge buttons -----
+  const nudgeRow = document.createElement("div");
+  nudgeRow.className = "chiprow";
+  nudgeRow.style.marginTop = "8px";
+  [
+    { label: "-1h", minutes: -60 },
+    { label: "-10m", minutes: -10 },
+    { label: "+10m", minutes: 10 },
+    { label: "+1h", minutes: 60 },
+  ].forEach(({ label, minutes }) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = label;
+    const dir = minutes < 0 ? "back" : "forward";
+    const amount = Math.abs(minutes) >= 60 ? `${Math.abs(minutes) / 60} hour` : `${Math.abs(minutes)} minutes`;
+    b.setAttribute("aria-label", `Move start ${dir} ${amount}`);
+    b.addEventListener("click", () => {
+      const cur = parseHHMM(startInput.value);
+      if (cur == null) return;
+      const next = moveStartKeepingDuration(cur, currentDuration, minutes);
+      startInput.value = hhmm(next);
+      applyStartChange();
+    });
+    nudgeRow.appendChild(b);
+  });
+  startField.appendChild(nudgeRow);
+
   body.appendChild(startField);
 
   // ----- Duration -----
@@ -352,17 +414,7 @@ export async function openBlockSheet({ date, block = null, start = null, duratio
   overlay.addEventListener("click", (e) => { if (e.target === overlay) requestClose(); });
   document.addEventListener("keydown", onKeydown);
 
-  startInput.addEventListener("change", () => {
-    const raw = parseHHMM(startInput.value);
-    if (raw == null) return;
-    const snapped = snapMinutes(raw, snapUnit);
-    if (snapped !== raw) {
-      startInput.value = hhmm(snapped);
-      startHint.textContent = `Rounded to ${hhmm(snapped)}`;
-    } else {
-      startHint.textContent = "";
-    }
-  });
+  startInput.addEventListener("change", applyStartChange);
 
   if (deleteBtn) {
     deleteBtn.addEventListener("click", async () => {

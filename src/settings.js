@@ -1,7 +1,7 @@
 // settings.js — settings screen: font size, hour height, snap unit, defaults,
 // backup/restore entry points, purge old data, full reset.
 
-import { FONT_STEPS, HOUR_STEPS, SNAP_STEPS, DEFAULT_SETTINGS, todayKey } from "./model.js";
+import { FONT_STEPS, HOUR_STEPS, SNAP_STEPS, DEFAULT_SETTINGS, START_PRESET_DEFAULTS, MAX_START_PRESETS, sanitizeStartPresets, hhmm, parseHHMM, todayKey } from "./model.js";
 import * as store from "./store.js";
 import { exportBackup, importBackup, pickImportFile, daysSinceBackup } from "./backup.js";
 import { confirmDialog, undoToast, toast } from "./ui.js";
@@ -495,6 +495,89 @@ export function openSettingsSheet({ onChanged }) {
   hint.textContent = "Narrower intervals may hide notes on shorter blocks.";
   displaySec.appendChild(hint);
   chipRow(displaySec, "Snap", SNAP_STEPS, settings.snap, (v) => v + "m", (v) => persist({ snap: v }));
+
+  const presetsSec = section("Start presets");
+  const presetsHint = document.createElement("p");
+  presetsHint.className = "hint";
+  presetsHint.textContent = "Quick-start buttons on the block editor. Up to 12.";
+  presetsSec.appendChild(presetsHint);
+
+  const presetsList = document.createElement("div");
+  presetsList.className = "chiprow";
+  presetsList.style.marginTop = "8px";
+  presetsSec.appendChild(presetsList);
+
+  function renderPresetsList() {
+    presetsList.innerHTML = "";
+    sanitizeStartPresets(settings.startPresets).forEach((min) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = `${hhmm(min)} ✕`;
+      chip.setAttribute("aria-label", `Remove ${hhmm(min)} preset`);
+      chip.addEventListener("click", async () => {
+        const ok = await confirmDialog({
+          title: "Remove preset?",
+          message: `${hhmm(min)} will be removed from Start presets.`,
+          confirmLabel: "Remove",
+          danger: true,
+        });
+        if (!ok) return;
+        persist({ startPresets: settings.startPresets.filter((m) => m !== min) });
+        renderPresetsList();
+      });
+      presetsList.appendChild(chip);
+    });
+  }
+  renderPresetsList();
+
+  const presetAddRow = document.createElement("div");
+  presetAddRow.style.display = "flex";
+  presetAddRow.style.gap = "8px";
+  presetAddRow.style.marginTop = "8px";
+  presetAddRow.style.alignItems = "center";
+  const presetAddInput = document.createElement("input");
+  presetAddInput.type = "time";
+  presetAddInput.style.flex = "1";
+  presetAddInput.style.width = "auto";
+  const presetAddBtn = document.createElement("button");
+  presetAddBtn.type = "button";
+  presetAddBtn.className = "btn";
+  presetAddBtn.textContent = "Add";
+  presetAddBtn.addEventListener("click", () => {
+    const raw = parseHHMM(presetAddInput.value);
+    if (raw == null) { toast("Enter a valid time"); return; }
+    const current = sanitizeStartPresets(settings.startPresets);
+    if (current.includes(raw)) { toast("Already in the list"); return; }
+    if (current.length >= MAX_START_PRESETS) { toast(`Up to ${MAX_START_PRESETS} presets`); return; }
+    persist({ startPresets: sanitizeStartPresets([...current, raw]) });
+    renderPresetsList();
+    presetAddInput.value = "";
+  });
+  presetAddRow.append(presetAddInput, presetAddBtn);
+  presetsSec.appendChild(presetAddRow);
+
+  const presetResetRow = document.createElement("div");
+  presetResetRow.className = "settings-row";
+  const presetResetLbl = document.createElement("div");
+  presetResetLbl.className = "lbl";
+  presetResetLbl.textContent = "Reset to defaults";
+  const presetResetBtn = document.createElement("button");
+  presetResetBtn.type = "button";
+  presetResetBtn.className = "btn";
+  presetResetBtn.textContent = "Reset";
+  presetResetBtn.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Reset start presets?",
+      message: "Start presets will be restored to the default 8 times.",
+      confirmLabel: "Reset",
+    });
+    if (!ok) return;
+    persist({ startPresets: [...START_PRESET_DEFAULTS] });
+    renderPresetsList();
+  });
+  presetResetRow.append(presetResetLbl, presetResetBtn);
+  presetsSec.appendChild(presetResetRow);
 
   const behaviorSec = section("Behavior");
   const nightRow = document.createElement("div");
