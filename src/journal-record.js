@@ -26,23 +26,29 @@ export function blockToJournalRecord(block, options = {}) {
   let updatedAt;
   try { updatedAt = localIso(options.updatedAt || block.updatedAt); }
   catch { updatedAt = localIso(); }
+  const includeContent = options.includeContent !== false;
   return {
     id: block.id,
     kind: "block",
     at: blockStartIso(block),
     updatedAt,
     deleted: options.deleted === true,
-    title: String(block.title || "Untitled block"),
+    title: includeContent ? String(block.title || "Untitled block") : "Loom block",
     data: {
       date: block.date,
       start: Math.max(0, Number(block.start) || 0),
       duration: Math.max(0, Number(block.duration) || 0),
-      title: String(block.title || ""),
-      subtitle: String(block.subtitle || ""),
-      note: String(block.note || ""),
-      detail: String(block.detail || ""),
+      ...(includeContent ? { title: String(block.title || ""), subtitle: String(block.subtitle || ""), note: String(block.note || ""), detail: String(block.detail || "") } : {}),
       color: String(block.color || "rose"),
-      done: block.done === true,
+      done: block.done === true, contentIncluded: includeContent,
     },
   };
+}
+
+export function blockActivityRecord(entry, block, { includeContent = true } = {}) {
+  return { id: `${entry.blockId}:${entry.date}`, kind: "block-activity", at: entry.firstAt, updatedAt: entry.lastAt, deleted: false,
+    title: includeContent ? String(block?.title || entry.title || "Untitled block") : "Loom block",
+    data: { activityDate: entry.date, sourceDate: entry.sourceDate, previousSourceDate: entry.previousSourceDate || undefined,
+      actions: entry.actions, firstAt: entry.firstAt, lastAt: entry.lastAt, contentIncluded: includeContent,
+      historyAccuracy: "exact", originTimestamp: entry.lastAt } };
 }

@@ -1,8 +1,10 @@
 import * as store from "./store.js";
 import * as sync from "./sync.js";
-import { blockToJournalRecord, localIso } from "./journal-record.js";
+import { blockActivityRecord, blockToJournalRecord, localIso } from "./journal-record.js";
 
 const ENABLED_KEY = "loom.journalEnabled.v1";
+const CONTENT_KEY = "loom.journalContent.v1";
+const ACTIVITY_KEY = "loom.journalActivity.v1";
 const HOSTNAME = globalThis.location?.hostname || "";
 const REPO = Object.freeze({
   owner: HOSTNAME.endsWith(".github.io")
@@ -42,6 +44,13 @@ export function isJournalEnabled() {
 
 export function setJournalEnabled(enabled) {
   writeItem(ENABLED_KEY, enabled ? "1" : "0");
+}
+export function isJournalContentEnabled() { return readItem(CONTENT_KEY) !== "0"; }
+export async function setJournalContentEnabled(enabled) {
+  writeItem(CONTENT_KEY, enabled ? "1" : "0");
+  const client = await getClient();
+  if (client && !enabled) await client.transformPending((record) => ({ ...record, title: "Loom block", updatedAt: localIso(), data: Object.fromEntries(Object.entries({ ...record.data, contentIncluded: false }).filter(([key]) => !["title", "subtitle", "note", "detail"].includes(key))) }));
+  await reportJournalStatus();
 }
 
 export function getJournalState() {
@@ -85,9 +94,10 @@ async function getClient() {
 }
 
 async function queueBlockChange(next, previous) {
-  if (!isJournalEnabled()) return;
   const source = next || previous;
   if (!source) return;
+  const entry = recordLocalActivity(next, previous);
+  if (!isJournalEnabled()) return;
   const client = await getClient();
   if (!client) {
     publish({ status: "error", errorCode: "MODULE_UNAVAILABLE" });
@@ -95,18 +105,31 @@ async function queueBlockChange(next, previous) {
   }
   try {
     if (!next) {
-      await client.enqueue(blockToJournalRecord(previous, { deleted: true, updatedAt: new Date() }), {
+      await client.enqueue(blockToJournalRecord(previous, { deleted: true, updatedAt: new Date(), includeContent: isJournalContentEnabled() }), {
         date: previous.date,
       });
+      const module = await import("../../shared/v2/journal.js");
+      if (!module.JOURNAL_KINDS?.loom?.includes("block-activity")) { publish({ status: "error", errorCode: "CONTRACT_STALE" }); return; }
+      await client.enqueue(blockActivityRecord(entry, previous, { includeContent: isJournalContentEnabled() }), { date: entry.date });
       return;
     }
-    await client.enqueue(blockToJournalRecord(next), {
+    await client.enqueue(blockToJournalRecord(next, { includeContent: isJournalContentEnabled() }), {
       date: next.date,
       previousDate: previous && previous.date !== next.date ? previous.date : undefined,
     });
+    const module = await import("../../shared/v2/journal.js");
+    if (!module.JOURNAL_KINDS?.loom?.includes("block-activity")) { publish({ status: "error", errorCode: "CONTRACT_STALE" }); return; }
+    await client.enqueue(blockActivityRecord(entry, next || previous, { includeContent: isJournalContentEnabled() }), { date: entry.date });
   } catch (error) {
     publish({ status: "error", errorCode: safeCode(error, "QUEUE_FAILED") });
   }
+}
+function readActivity() { try { const value = JSON.parse(readItem(ACTIVITY_KEY) || "{}"); return value && typeof value === "object" ? value : {}; } catch { return {}; } }
+function inferAction(next, previous) { if (!previous) return "created"; if (!next) return "deleted"; if (next.date !== previous.date) return "moved"; if (next.done !== previous.done) return next.done ? "completed" : "reopened"; return "edited"; }
+function recordLocalActivity(next, previous) {
+  const block = next || previous; const at = localIso(); const date = at.slice(0, 10); const key = `${date}:${block.id}`; const entries = readActivity(); const current = entries[key]; const action = inferAction(next, previous);
+  entries[key] = { date, blockId: block.id, title: String(block.title || ""), sourceDate: next?.date || previous?.date, previousSourceDate: previous && next && previous.date !== next.date ? previous.date : undefined, actions: [...new Set([...(current?.actions || []), action])], firstAt: current?.firstAt || at, lastAt: at };
+  const cutoff = Date.now() - 90 * 86400000; Object.keys(entries).forEach(id => { if (Date.parse(entries[id].lastAt) < cutoff) delete entries[id]; }); writeItem(ACTIVITY_KEY, JSON.stringify(entries)); return entries[key];
 }
 
 export function attachJournal() {
@@ -132,7 +155,7 @@ export async function reportJournalStatus(extra = {}) {
   const client = await getClient();
   if (!client) return false;
   try {
-    await client.reportStatus({ journalEnabled: isJournalEnabled(), ...extra });
+    await client.reportStatus({ journalEnabled: isJournalEnabled(), contentIncluded: isJournalContentEnabled(), ...extra });
     return true;
   } catch (error) {
     publish({ status: "error", errorCode: safeCode(error, "STATUS_FAILED") });
@@ -147,7 +170,7 @@ export async function backfillJournal(blocks, { from, to, totalDates }) {
     status: "running", from, to, processedDates: 0, totalDates, updatedAt: localIso(),
   } });
   for (const block of blocks) {
-    try { await client.enqueue(blockToJournalRecord(block), { date: block.date }); }
+    try { await client.enqueue(blockToJournalRecord(block, { includeContent: isJournalContentEnabled() }), { date: block.date }); }
     catch { /* one invalid imported block must not stop the rest */ }
   }
   const result = await client.flush();

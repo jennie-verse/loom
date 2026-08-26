@@ -91,6 +91,12 @@ function buildSyncSection(sec) {
   enableRow.append(enableLbl, enableSwitch);
   sec.appendChild(enableRow);
 
+  const contentRow = document.createElement("div"); contentRow.className = "settings-row";
+  const contentLabel = document.createElement("div"); contentLabel.className = "lbl"; contentLabel.textContent = "Upload content to private Journal";
+  const contentSwitch = document.createElement("button"); contentSwitch.type = "button"; contentSwitch.className = "switch"; contentSwitch.setAttribute("role", "switch");
+  contentRow.append(contentLabel, contentSwitch); sec.appendChild(contentRow);
+  const contentHint = document.createElement("p"); contentHint.className = "hint"; contentHint.textContent = "When off, titles, subtitles, notes and details are omitted. This is separate from Daybook Compact and does not erase Git history."; sec.appendChild(contentHint);
+
   // --- actions ---
   const actionRow = document.createElement("div");
   actionRow.style.display = "flex";
@@ -306,7 +312,10 @@ function buildJournalSection(sec) {
     status.textContent = state.enabled
       ? `${state.errorCode || state.status} · ${state.pendingCount || 0} pending`
       : "Off — no Loom records are sent to Daybook.";
+    contentSwitch.setAttribute("aria-checked", String(journal.isJournalContentEnabled()));
   }
+
+  contentSwitch.addEventListener("click", async () => { await journal.setJournalContentEnabled(!journal.isJournalContentEnabled()); refresh(await journal.refreshJournalState()); });
 
   async function makePreview() {
     const days = rangeDays(from.value, to.value);

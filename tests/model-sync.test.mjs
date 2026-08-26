@@ -4,7 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as model from '../src/model.js';
-import { blockToJournalRecord } from '../src/journal-record.js';
+import { blockActivityRecord, blockToJournalRecord } from '../src/journal-record.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = (path) => readFileSync(resolve(root, path), 'utf8');
@@ -145,9 +145,17 @@ test('journal block projection includes every scheduled field regardless of comp
   assert.deepEqual(record.data, {
     date: '2026-08-17', start: 540, duration: 45, title: 'Fixture block',
     subtitle: 'Fixture subtitle', note: 'Fixture note', detail: 'Fixture detail',
-    color: 'rose', done: false,
+    color: 'rose', done: false, contentIncluded: true,
   });
   assert.equal(JSON.stringify(record).includes('token'), false);
+});
+
+test('content-off blocks are neutral and activity records use the real activity day', () => {
+  const block = { id: 'b1', date: '2026-08-30', start: 600, duration: 30, title: 'Private', subtitle: 'Secret', note: 'N', detail: 'D', updatedAt: '2026-08-26T10:00:00-05:00' };
+  const projection = blockToJournalRecord(block, { includeContent: false });
+  assert.equal(projection.title, 'Loom block'); assert.equal(projection.data.note, undefined);
+  const activity = blockActivityRecord({ blockId: 'b1', date: '2026-08-26', sourceDate: '2026-08-30', actions: ['edited'], firstAt: '2026-08-26T10:00:00-05:00', lastAt: '2026-08-26T10:05:00-05:00' }, block, { includeContent: false });
+  assert.equal(activity.kind, 'block-activity'); assert.equal(activity.id, 'b1:2026-08-26'); assert.equal(activity.title, 'Loom block');
 });
 
 test('journal uses a separate default-off key and dynamically loads shared v2', () => {
