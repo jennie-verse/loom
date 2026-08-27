@@ -87,10 +87,10 @@ export function createDayView({ scrollEl, gridEl, handlers }) {
           hit.className = "hourhit";
           hit.style.top = top + "px";
           hit.style.height = hh + "px";
-          hit.setAttribute("aria-label", `Add block at ${pad2(hnum)}:00`);
+          hit.setAttribute("aria-label", `Add block between ${pad2(hnum)}:00 and ${pad2(hnum + 1)}:00`);
           hit.addEventListener("click", (e) => {
             const rect = hit.getBoundingClientRect();
-            const offsetY = e.clientY - rect.top;
+            const offsetY = e.detail === 0 ? 0 : e.clientY - rect.top;
             const rawMin = mn + (offsetY / hh) * 60;
             const snapped = snapMinutes(rawMin, settings.snap);
             handlers.onCreate({ date, start: Math.min(snapped, MINUTES_PER_DAY - 30), duration: 30 });

@@ -91,6 +91,12 @@ test('primary touch controls keep a 44px minimum target', () => {
   assert.match(dayView, /const NIGHT_BAND_PX = 48;/);
 });
 
+test('hour hit targets describe their full range and keyboard activation starts on the hour', () => {
+  const dayView = source('src/day-view.js');
+  assert.match(dayView, /Add block between \$\{pad2\(hnum\)\}:00 and \$\{pad2\(hnum \+ 1\)\}:00/);
+  assert.match(dayView, /e\.detail === 0 \? 0 : e\.clientY - rect\.top/);
+});
+
 test('sync is disabled without credentials and context', () => {
   assert.equal(sync.isEnabled(), false);
   assert.equal(sync.isReady(), false);

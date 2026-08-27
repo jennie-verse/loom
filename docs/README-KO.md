@@ -63,7 +63,7 @@ loom/
 | 층 | 파일 | 무엇 |
 |---|---|---|
 | A | `loom/data.<기기>.json` | 블록·템플릿 (기기 간 동기화) |
-| B | `events/loom.<기기>.<YYYY-MM>.json` | 완료 기록 — atlas·trace가 읽음 |
+| B | `events/loom.<기기>.<YYYY-MM>.json` | 완료 기록 — 보관된 Atlas·Trace 형식과의 호환용이며 현재 활성 소비 앱은 없음 |
 | C | `backups/loom/YYYY-MM-DD.json` | 복원용 스냅샷, 최근 12개 |
 
 ## 고칠 때 지켜야 하는 것 두 가지
