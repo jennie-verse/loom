@@ -4,4 +4,4 @@
 // cached build first, so a freshly deployed fix can sit unused while the old
 // build keeps running. Settings shows this string, so "what is actually running
 // on this device" is readable without guessing.
-export const APP_BUILD = "2026.08.27-icon-refresh1";
+export const APP_BUILD = "2026.08.27-iconpalette1";
