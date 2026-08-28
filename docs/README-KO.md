@@ -49,7 +49,7 @@ loom/
 | 아이콘 | `icons/` 폴더 (다시 그릴 때는 `Plan/loom_design-concepts/loom-icon/` 원본 참고) |
 | 기본 템플릿 이름(Weekday/Weekend) | `src/store.js`의 `DEFAULT_TEMPLATES` |
 
-색을 바꿀 때는 `webapp-standard.md`의 "한 화면에 6색 이내" 원칙과, 블록 배경 틴트가 옅어 왼쪽 색 바 + 테두리로 경계를 만든다는 점(build brief §0-2)을 함께 고려하세요.
+색을 바꿀 때는 `WebApp_House_Style.md`의 "한 화면에 6색 이내" 원칙과, 블록 배경 틴트가 옅어 왼쪽 색 바 + 테두리로 경계를 만든다는 점(build brief §0-2)을 함께 고려하세요.
 
 ## 데이터가 저장되는 곳
 
