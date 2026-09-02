@@ -702,7 +702,13 @@ export function openSettingsSheet({ onChanged }) {
   const rfLbl = document.createElement("div"); rfLbl.className = "lbl"; rfLbl.textContent = "Restore default display";
   const rfBtn = document.createElement("button");
   rfBtn.type = "button"; rfBtn.className = "btn"; rfBtn.textContent = "Restore";
-  rfBtn.addEventListener("click", () => {
+  rfBtn.addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Restore default display?",
+      message: "Text size, row height and snap will be restored to their defaults.",
+      confirmLabel: "Restore",
+    });
+    if (!ok) return;
     persist({ font: DEFAULT_SETTINGS.font, hourHeight: DEFAULT_SETTINGS.hourHeight, snap: DEFAULT_SETTINGS.snap });
     close(); openSettingsSheet({ onChanged });
   });
