@@ -136,7 +136,7 @@ a { color: inherit; }
 
 /* ---------- Backup notice ---------- */
 .notice {
-  flex: 0 0 auto; padding: 6px 12px; background: #FDEFE1; border-bottom: 1px solid var(--line);
+  flex: 0 0 auto; padding: 6px 12px; background: var(--t-orange); border-bottom: 1px solid var(--line);
   font-size: calc(var(--f) * .92); color: var(--text); display: flex; align-items: center; gap: 8px;
 }
 .notice button { margin-left: auto; background: none; border: 0; color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; min-height: 44px; padding: 0 8px; }
@@ -353,7 +353,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .switch[aria-checked="true"]::after { transform: translateX(18px); }
 @media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
 
-.err-box { background: #FDEFE1; border: 1px solid var(--peach); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: calc(var(--f) * .95); margin-top: 10px; }
+.err-box { background: var(--t-orange); border: 1px solid var(--peach); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: calc(var(--f) * .95); margin-top: 10px; }
 
 /* ---------- Calendar sheet ---------- */
 .cal-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
